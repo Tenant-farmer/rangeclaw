@@ -1,0 +1,21 @@
+{
+  "pair": "TSLAx/USDC",
+  "poolAddress": "6FQQyf7UcyU86TZC1cmAcfC4a18SJyDggEKtQfTJWmfs",
+  "ownerWallet": "461jZcmvHnry8LpiDRZ9W9t5dHgMXwhYpGDANFkCkU9Z",
+  "positionNft": "Hnt6GBmKajG9YJoDHhKjtg64LmRDRzvd2dHfmV6cQmPK",
+  "positionAddress": "5miey3fjHdccz6jmqtE9BFVzZRSe8V8JB56twBQPurm7",
+  "tokenAMint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+  "tokenBMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "decimalsA": 8,
+  "decimalsB": 6,
+  "rebalanceBufferPct": 5,
+  "nextEarnings": "2026-07-22",
+  "earningsWindowDays": 3,
+  "earningsWidenFactor": 1.5,
+  "mantle": {
+    "chainId": 5003,
+    "rpc": "https://rpc.sepolia.mantle.xyz",
+    "explorer": "https://explorer.sepolia.mantle.xyz",
+    "journalAddress": "0x09542c48b8708ed0CeB52a636193A2d932D9350E"
+  }
+}

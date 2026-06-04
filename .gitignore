@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+# NEVER commit any private key material
+*.key
+*.keypair
+keypair*.json
+id.json
+.byreal/
+# Agent wallet keystore - NEVER commit
+.wallet/
