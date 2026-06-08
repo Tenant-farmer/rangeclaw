@@ -20,7 +20,7 @@
       </div>
       <p id="market" class="mt-4 text-slate-300">Loading…</p>
       <a href="onboard.html" class="inline-block mt-3 text-sm px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-semibold">+ Open a guarded position →</a>
-      <p id="realized" class="mt-3 text-sm text-emerald-300"></p>
+      <div id="realized" class="mt-4 rounded-xl border border-emerald-700/40 bg-emerald-500/5 px-4 py-3 text-sm hidden"></div>
     </header>
 
     <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Tokenized stocks on Byreal <span class="text-slate-600 normal-case">· held positions show their range band</span></h2>
@@ -108,13 +108,20 @@
       const provider = new JsonRpcProvider(M.rpc, M.chainId);
       const c = new Contract(M.journal, ABI, provider);
       document.getElementById("count").textContent = (await c.count()).toString();
-      const [dec, out] = await Promise.all([
-        c.queryFilter(c.filters.DecisionLogged(), M.fromBlock, "latest"),
-        c.queryFilter(c.filters.OutcomeLogged(), M.fromBlock, "latest"),
-      ]);
-      if (out.length) {
-        const a = out[out.length - 1].args;
-        document.getElementById("realized").innerHTML = `\u{1F4B0} Realized on-chain: <b>$${(Number(a.feesE6) / 1e6).toFixed(2)}</b> fees · PnL <b>$${(Number(a.pnlE6) / 1e6).toFixed(2)}</b> <span class="text-slate-500">· ${out.length} outcomes recorded</span>`;
+      const latest = await provider.getBlockNumber();
+      const getAll = async (filter) => { // Mantle RPC caps getLogs at 10k blocks → page through
+        const acc = []; let from = M.fromBlock || Math.max(0, latest - 9000);
+        while (from <= latest) { const to = Math.min(from + 9000, latest); acc.push(...await c.queryFilter(filter, from, to)); from = to + 1; }
+        return acc;
+      };
+      const dec = await getAll(c.filters.DecisionLogged());
+      const out = await getAll(c.filters.OutcomeLogged());
+      if (out.length || dec.length) {
+        const a = out.length ? out[out.length - 1].args : null;
+        const fees = a ? Number(a.feesE6) / 1e6 : 0, pnl = a ? Number(a.pnlE6) / 1e6 : 0;
+        const el = document.getElementById("realized");
+        el.classList.remove("hidden");
+        el.innerHTML = `<span class="text-emerald-300 font-bold text-base">\u{1F4B0} $${fees.toFixed(2)} fees realized</span> · PnL $${pnl.toFixed(2)} · net <b>$${(fees + pnl).toFixed(2)}</b> <span class="text-slate-400">— ${dec.length} decisions + ${out.length} outcomes on <a class="text-sky-400 hover:underline" target="_blank" rel="noopener" href="${M.explorer}/address/${M.journal}">Mantle ↗</a></span>`;
       }
       const items = dec.map((e) => ({ d: e.args, tx: e.transactionHash })).reverse();
       document.getElementById("journal").innerHTML = items.length

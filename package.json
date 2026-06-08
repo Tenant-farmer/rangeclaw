@@ -14,7 +14,9 @@
     "loop": "node scripts/agent-loop.js",
     "hedge": "node src/hedge.js",
     "build-tx": "node scripts/build-tx.js",
-    "serve": "node server.js"
+    "serve": "node server.js",
+    "snapshot": "node scripts/snapshot.js",
+    "verify": "node scripts/verify.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
