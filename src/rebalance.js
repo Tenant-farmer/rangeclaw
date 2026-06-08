@@ -9,14 +9,15 @@ import process from "node:process";
 import { portfolio } from "./portfolio.js";
 import { dailyCloses } from "./byreal.js";
 import { realizedVolDaily, volWidthPct } from "./strategy.js";
+import { tickToPrice as t2p, priceToTick as p2t } from "./tickmath.js";
 
 const cfg = JSON.parse(readFileSync(fileURLToPath(new URL("../config.json", import.meta.url)), "utf8"));
 
 export function planRebalance(row, opts = {}) {
   const pool = row.pool;
-  const shift = 10 ** (pool.token_a.decimals - pool.token_b.decimals);
-  const tickToPrice = (t) => Math.pow(1.0001, t) * shift;
-  const priceToTick = (p) => Math.log(p / shift) / Math.log(1.0001);
+  const decA = pool.token_a.decimals, decB = pool.token_b.decimals;
+  const tickToPrice = (t) => t2p(t, decA, decB);
+  const priceToTick = (p) => p2t(p, decA, decB);
   const widen = opts.widen ?? false;
   const widenFactor = widen ? (cfg.earningsWidenFactor || 1.5) : 1;
   const curTick = Math.round(priceToTick(row.price));
