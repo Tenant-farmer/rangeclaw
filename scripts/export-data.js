@@ -3,7 +3,7 @@
 // carry their range + Guardian action so the chart shows the band (like TSLAx).
 //   node scripts/export-data.js   (re-run + redeploy, or let server.js refresh)
 
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import process from "node:process";
@@ -13,6 +13,7 @@ import { decide } from "../src/guardian.js";
 import { marketSession } from "../src/equity.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const cfg = JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
 
 async function klines(poolId) {
   try {
@@ -34,6 +35,7 @@ async function main() {
       symbol: p.token_a.symbol, ticker: p.token_a.symbol.replace(/x$/, ""),
       poolId: p.id, mintB: p.token_b.mint,
       apr: +p.total_apr.toFixed(1), price: +p.current_price.toFixed(2), tvl: Math.round(p.tvl_usd),
+      mcap: cfg.marketCaps?.[p.token_a.symbol.replace(/x$/, "")] ?? 0,
       held: false, klines: await klines(p.id),
     };
     const r = heldByPool.get(p.id);
@@ -50,7 +52,7 @@ async function main() {
     }
     stocks.push(entry);
   }
-  stocks.sort((a, b) => (b.held - a.held) || (b.apr - a.apr)); // held first, then APR
+  stocks.sort((a, b) => (b.mcap - a.mcap) || (b.apr - a.apr)); // market cap desc
 
   const out = { generatedAt: now.toISOString(), market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime }, stocks };
   writeFileSync(join(root, "web", "data.json"), JSON.stringify(out));
