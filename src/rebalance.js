@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
 import { portfolio } from "./portfolio.js";
-import { dailyCloses } from "./byreal.js";
+import { dailyCloses, swapQuote } from "./byreal.js";
 import { realizedVolDaily, volWidthPct } from "./strategy.js";
 import { tickToPrice as t2p, priceToTick as p2t } from "./tickmath.js";
 
@@ -51,7 +51,13 @@ export async function planAll(owner = cfg.ownerWallet) {
   for (const r of rows) {
     let targetWidthPct = null;
     try { targetWidthPct = volWidthPct(realizedVolDaily(await dailyCloses(r.pool.id, 60)), { horizonDays: cfg.volHorizonDays ?? 7, k: cfg.volK ?? 2 }); } catch {}
-    plans.push(planRebalance(r, { targetWidthPct }));
+    const plan = planRebalance(r, { targetWidthPct });
+    // validate the recenter against the live AMM: price impact of swapping the stock-side notional
+    try {
+      const stockAmt = ((parseFloat(r.pos.liquidityUsd) || 0) / 2) / r.price;
+      if (stockAmt > 0) plan.quotedImpactPct = (await swapQuote(r.pool.token_a.mint, r.pool.token_b.mint, stockAmt.toFixed(4))).priceImpactPct;
+    } catch {}
+    plans.push(plan);
   }
   return plans;
 }
@@ -64,6 +70,7 @@ export function formatPlan(p) {
     `→ new <b>$${p.newLow.toFixed(2)}–$${p.newHigh.toFixed(2)}</b> (recentered, ${p.liq})`,
     p.widthPct ? `\u{1F4CF} vol-sized ±${(p.widthPct * 100).toFixed(1)}% range` : "",
     `\u{1F4B5} closes ~${p.liq} · ~${cfg.backtestCostBps ?? 20}bps est. cost (slippage+gas)`,
+    p.quotedImpactPct != null ? `\u{1F50E} live Byreal quote: ${p.quotedImpactPct.toFixed(2)}% price impact on the recenter swap` : "",
     `<i>non-custodial: emits an unsigned tx you sign</i>`,
   ].filter(Boolean).join("\n");
 }
@@ -72,7 +79,7 @@ async function main() {
   const plans = await planAll();
   if (!plans.length) { console.log("No stock positions to plan."); return; }
   for (const p of plans) {
-    console.log(`\n[${p.pair}] $${p.price.toFixed(2)}  old $${p.oldLow.toFixed(2)}-$${p.oldHigh.toFixed(2)} -> new $${p.newLow.toFixed(2)}-$${p.newHigh.toFixed(2)}`);
+    console.log(`\n[${p.pair}] $${p.price.toFixed(2)}  old $${p.oldLow.toFixed(2)}-$${p.oldHigh.toFixed(2)} -> new $${p.newLow.toFixed(2)}-$${p.newHigh.toFixed(2)}${p.quotedImpactPct != null ? `  · quote ${p.quotedImpactPct.toFixed(2)}% impact` : ""}`);
     console.log(`  close: ${p.closeCmd}`);
     console.log(`  open : ${p.openCmd}`);
   }

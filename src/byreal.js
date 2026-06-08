@@ -24,7 +24,8 @@ export async function byreal(argString) {
   if (!SAFE.test(argString)) throw new Error("byreal: refused unsafe argument");
   const cmd = `byreal-cli --non-interactive -o json ${argString}`;
   const { stdout } = await pexec(cmd, { maxBuffer: 16 * 1024 * 1024 });
-  const json = JSON.parse(stdout);
+  const start = stdout.indexOf("{"); // some commands (e.g. swap --dry-run) print a banner before the JSON
+  const json = JSON.parse(start >= 0 ? stdout.slice(start) : stdout);
   if (json && json.success === false) {
     const e = json.error || {};
     throw new Error(`byreal-cli ${e.code || "ERROR"}: ${e.message || "unknown error"}`);
@@ -45,4 +46,10 @@ export async function dailyCloses(pool, days = 180) {
     .sort((a, b) => a.t - b.t)
     .map((x) => x.c)
     .filter((p) => p > 0);
+}
+
+// Live AMM quote (no execution): estimated output + price impact for a swap.
+export async function swapQuote(inputMint, outputMint, amount) {
+  const d = (await byreal(`swap execute --input-mint ${inputMint} --output-mint ${outputMint} --amount ${amount} --dry-run`)).data;
+  return { priceImpactPct: parseFloat(d.priceImpactPct), uiOut: parseFloat(d.uiOutAmount), outUsd: d.outAmountUsd, inUsd: d.inAmountUsd };
 }
