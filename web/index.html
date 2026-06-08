@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
-  <div class="max-w-4xl mx-auto px-5 py-10">
+  <div class="max-w-5xl mx-auto px-5 py-10">
 
     <header class="mb-6">
       <div class="flex items-center gap-3">
@@ -21,13 +21,8 @@
       <p id="market" class="mt-4 text-slate-300">Loading…</p>
     </header>
 
-    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Your stock-LP positions</h2>
-    <div id="positions" class="space-y-4 mb-8"><div class="text-slate-500 text-sm">Loading portfolio…</div></div>
-
-    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Byreal tokenized stocks — APR</h2>
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mb-8">
-      <div style="height:240px"><canvas id="universeChart"></canvas></div>
-    </div>
+    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Tokenized stocks on Byreal <span class="text-slate-600 normal-case">· held positions show their range band</span></h2>
+    <div id="stocks" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8"><div class="text-slate-500 text-sm">Loading charts…</div></div>
 
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide">On-chain decision journal (live from Mantle)</h2>
@@ -37,7 +32,7 @@
 
     <footer class="mt-10 pt-6 border-t border-slate-800 text-sm text-slate-400">
       <div>Contract: <a class="text-sky-400 hover:underline" target="_blank" href="https://explorer.sepolia.mantle.xyz/address/0x09542c48b8708ed0CeB52a636193A2d932D9350E">0x09542c48b8708ed0CeB52a636193A2d932D9350E</a></div>
-      <div class="mt-1">Built for the Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy · liquidity via Byreal Skills CLI</div>
+      <div class="mt-1">Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy · liquidity via Byreal Skills CLI</div>
       <div id="generated" class="mt-1 text-slate-600"></div>
     </footer>
   </div>
@@ -49,56 +44,52 @@
     const badge = (a) => `<span class="px-2 py-0.5 rounded-md text-xs font-bold" style="color:${ACTION[a]||'#94a3b8'};background:${(ACTION[a]||'#94a3b8')}22;border:1px solid ${(ACTION[a]||'#94a3b8')}55">${a}</span>`;
     const gridC = "#1f2a44", tickC = "#64748b";
 
-    // ---------- portfolio + charts (from generated data.json) ----------
+    // ---------- all stocks + charts (from generated data.json) ----------
     const data = await fetch("data.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
     if (data) {
       const m = data.market;
+      const held = data.stocks.filter((s) => s.held);
+      const inRange = held.filter((s) => s.inRange).length;
       document.getElementById("market").innerHTML =
-        `\u{1F3DB}\u{FE0F} US market: <b>${m.isOpen ? "🟢 OPEN" : "🔴 " + m.state}</b> <span class="text-slate-500">· ${m.etTime}</span>`;
+        `\u{1F3DB}\u{FE0F} US market: <b>${m.isOpen ? "🟢 OPEN" : "🔴 " + m.state}</b> <span class="text-slate-500">· ${m.etTime}</span><br>` +
+        `<span class="text-slate-400 text-sm">${data.stocks.length} stocks · ${held.length} held · ${inRange} in range</span>`;
 
-      const cont = document.getElementById("positions");
-      cont.innerHTML = "";
-      if (!data.positions.length) cont.innerHTML = `<div class="text-slate-500 text-sm">No stock LP positions yet — open one in any xStock/USDC pool.</div>`;
-      data.positions.forEach((p, i) => {
+      const grid = document.getElementById("stocks");
+      grid.innerHTML = "";
+      data.stocks.forEach((s, i) => {
         const card = document.createElement("div");
-        card.className = "rounded-2xl border border-slate-800 bg-slate-900/60 p-5";
+        card.className = `rounded-2xl border ${s.held ? "border-sky-700/60 bg-slate-900/70" : "border-slate-800 bg-slate-900/40"} p-4`;
+        const sub = s.held
+          ? `<div class="mt-1 text-xs text-slate-400">${s.inRange ? `in range · buffer ${s.buffer}%` : "out of range"} · range $${s.lo}–$${s.hi} · liq ${s.liq} · fees ${s.fees}</div>
+             <div class="text-xs text-slate-300 mt-0.5">${s.rationale}</div>`
+          : `<div class="mt-1 text-xs text-slate-500">TVL $${(s.tvl / 1000).toFixed(0)}K · not held</div>`;
         card.innerHTML = `
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3"><span class="text-lg font-bold">${p.pair}</span>${badge(p.action)}</div>
-            <div class="text-right"><div class="text-2xl font-bold">$${p.price.toFixed(2)}</div>
-              <div class="text-xs text-slate-400">${p.inRange ? `in range · buffer ${p.buffer}%` : "out of range"}</div></div>
+            <div class="flex items-center gap-2"><span class="font-bold">${s.symbol}</span>${s.held ? badge(s.action) : ""}</div>
+            <div class="text-right"><div class="font-bold">$${s.price.toFixed(2)}</div><div class="text-xs text-slate-400">APR ${s.apr}%</div></div>
           </div>
-          <div class="mt-3" style="height:200px"><canvas id="chart${i}"></canvas></div>
-          <div class="mt-2 text-xs text-slate-400">liq ${p.liq} · fees ${p.fees} · PnL ${p.pnl} · range $${p.lo}–$${p.hi}</div>
-          <div class="mt-1 text-sm text-slate-300">${p.rationale}</div>`;
-        cont.appendChild(card);
+          <div class="mt-2" style="height:140px"><canvas id="c${i}"></canvas></div>
+          ${sub}`;
+        grid.appendChild(card);
 
-        const labels = p.klines.map((k) => new Date(k.t * 1000).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit" }));
-        const n = p.klines.length;
-        new Chart(document.getElementById("chart" + i), {
+        const n = s.klines.length;
+        const color = s.held ? "#60a5fa" : "#64748b";
+        const ds = [{ data: s.klines.map((k) => k.c), borderColor: color, backgroundColor: color + "1f", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true }];
+        if (s.held) ds.push(
+          { data: Array(n).fill(s.lo), borderColor: "#4ade80", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+          { data: Array(n).fill(s.hi), borderColor: "#f87171", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+        );
+        new Chart(document.getElementById("c" + i), {
           type: "line",
-          data: { labels, datasets: [
-            { label: "Price", data: p.klines.map((k) => k.c), borderColor: "#60a5fa", backgroundColor: "#60a5fa22", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true },
-            { label: "Lower", data: Array(n).fill(p.lo), borderColor: "#4ade80", borderWidth: 1, borderDash: [6, 6], pointRadius: 0 },
-            { label: "Upper", data: Array(n).fill(p.hi), borderColor: "#f87171", borderWidth: 1, borderDash: [6, 6], pointRadius: 0 },
-          ] },
-          options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false },
-            plugins: { legend: { display: false } },
-            scales: { x: { ticks: { color: tickC, maxTicksLimit: 6 }, grid: { display: false } }, y: { ticks: { color: tickC }, grid: { color: gridC } } } },
+          data: { labels: s.klines.map(() => ""), datasets: ds },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { ticks: { color: tickC, maxTicksLimit: 4 }, grid: { color: gridC } } } },
         });
-      });
-
-      const u = data.universe;
-      new Chart(document.getElementById("universeChart"), {
-        type: "bar",
-        data: { labels: u.map((x) => x.symbol), datasets: [{ label: "APR %", data: u.map((x) => x.apr), backgroundColor: "#38bdf8", borderRadius: 4 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-          scales: { x: { ticks: { color: "#94a3b8" }, grid: { display: false } }, y: { ticks: { color: tickC, callback: (v) => v + "%" }, grid: { color: gridC } } } },
       });
 
       if (data.generatedAt) document.getElementById("generated").textContent = "data snapshot: " + new Date(data.generatedAt).toLocaleString();
     } else {
-      document.getElementById("positions").innerHTML = `<div class="text-amber-400 text-sm">data.json not found — run <code>node scripts/export-data.js</code> and redeploy.</div>`;
+      document.getElementById("stocks").innerHTML = `<div class="text-amber-400 text-sm">data.json not found — run <code>node scripts/export-data.js</code>.</div>`;
     }
 
     // ---------- on-chain decision journal (live from Mantle) ----------
