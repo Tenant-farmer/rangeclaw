@@ -11,6 +11,7 @@ import { Bot } from "grammy";
 import { assessPortfolio, formatPortfolio } from "./guardian.js";
 import { planAll, formatPlan } from "./rebalance.js";
 import { discoverStockPools } from "./portfolio.js";
+import { hedgePlan } from "./hedge.js";
 
 try { process.loadEnvFile(fileURLToPath(new URL("../.env", import.meta.url))); } catch {}
 
@@ -27,7 +28,7 @@ const bot = new Bot(token);
 bot.use((ctx, next) => { if (ctx.chat?.id) subscribe(ctx.chat.id); return next(); }); // anyone who talks to the bot gets alerts
 
 bot.command("start", (ctx) =>
-  ctx.reply("\u{1F985} RangeClaw online.\n/status — your stock-LP portfolio + Guardian\n/stocks — all tokenized stocks by APR\n/plan — non-custodial rebalance plans\n/alerts — DM me when a position needs attention")
+  ctx.reply("\u{1F985} RangeClaw online.\n/status — your stock-LP portfolio + Guardian\n/stocks — all tokenized stocks by APR\n/plan — non-custodial rebalance plans\n/hedge — delta-hedge suggestion (Byreal Perps)\n/alerts — DM me when a position needs attention")
 );
 
 bot.command("alerts", (ctx) =>
@@ -59,6 +60,22 @@ bot.command("plan", async (ctx) => {
     const plans = await planAll();
     if (!plans.length) return ctx.reply("No stock LP positions to plan.");
     await ctx.reply(plans.map(formatPlan).join("\n\n"), { parse_mode: "HTML" });
+  } catch (e) { await ctx.reply("⚠️ Error: " + e.message); }
+});
+
+bot.command("hedge", async (ctx) => {
+  console.log("/hedge from", ctx.from?.username || ctx.from?.id);
+  await ctx.reply("⏳ Computing delta hedges (Byreal Perps)…");
+  try {
+    const plans = await hedgePlan();
+    if (!plans.length) return ctx.reply("No stock LP positions to hedge.");
+    const lines = ["<b>\u{1F6E1}\u{FE0F} Delta hedge (advisory)</b>", ""];
+    for (const h of plans) {
+      if (h.perp) lines.push(`<b>${h.pair}</b> — LP long ~$${h.deltaUsd} ${h.ticker}\n  short <b>${h.size} ${h.ticker}</b> ($${h.perpPrice}, funding ${h.funding}/yr)\n  <code>byreal-perps-cli order market sell ${h.size} ${h.ticker}</code>`);
+      else lines.push(`<b>${h.pair}</b> — no Hyperliquid perp for ${h.ticker}`);
+    }
+    lines.push("\n<i>advisory · non-custodial · needs your own perps account</i>");
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
   } catch (e) { await ctx.reply("⚠️ Error: " + e.message); }
 });
 
