@@ -44,6 +44,11 @@
     </div>
     <div id="journal" class="space-y-2"><div class="text-slate-500 text-sm">Reading the AgentJournal contract…</div></div>
 
+    <div class="mt-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">Why this is a business</h2>
+      <div id="econ" class="text-sm text-slate-300 leading-relaxed">—</div>
+    </div>
+
     <footer class="mt-10 pt-6 border-t border-slate-800 text-sm text-slate-400">
       <div>Contract: <a id="caddr" class="text-sky-400 hover:underline" target="_blank" rel="noopener" href="#">—</a></div>
       <div class="mt-1">Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy · liquidity via Byreal Skills CLI</div>
@@ -71,6 +76,12 @@
       const stale = genMin != null && genMin > 30;
       const hb = document.getElementById("heartbeat");
       if (hb) hb.innerHTML = `<span class="${stale ? "text-amber-400" : "text-emerald-400"}">●</span> agent ${stale ? "data stale" : "live"} · refreshed ${genMin != null ? genMin + "m ago" : "—"} · ${data.stocks.length} stocks watched · auto-refresh ~10m`;
+
+      const totalTVL = data.stocks.reduce((s, x) => s + (x.tvl || 0), 0);
+      const avgApr = data.stocks.reduce((s, x) => s + (x.apr || 0), 0) / (data.stocks.length || 1);
+      const rev = totalTVL * (avgApr / 100) * 0.10; // 10% performance fee on fees helped-to-capture
+      const econ = document.getElementById("econ");
+      if (econ) econ.innerHTML = `RangeClaw can guard <b class="text-slate-100">$${(totalTVL / 1e6).toFixed(1)}M</b> of tokenized-stock liquidity across ${data.stocks.length} Byreal pools (avg <b class="text-slate-100">${avgApr.toFixed(0)}% APR</b>). A 10% performance fee on the fees it keeps LPs earning in-range ≈ <b class="text-emerald-300">$${Math.round(rev).toLocaleString()}/yr</b> at full adoption — a Byreal-native LP-retention layer that deepens xStock liquidity (Byreal's own KPI). <span class="text-slate-500">Illustrative TAM from current pool TVL × APR.</span>`;
 
       const grid = document.getElementById("stocks");
       grid.innerHTML = "";
