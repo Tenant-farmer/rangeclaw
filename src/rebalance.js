@@ -63,6 +63,7 @@ export function formatPlan(p) {
     `Current $${p.price.toFixed(2)} · old $${p.oldLow.toFixed(2)}–$${p.oldHigh.toFixed(2)}`,
     `→ new <b>$${p.newLow.toFixed(2)}–$${p.newHigh.toFixed(2)}</b> (recentered, ${p.liq})`,
     p.widthPct ? `\u{1F4CF} vol-sized ±${(p.widthPct * 100).toFixed(1)}% range` : "",
+    `\u{1F4B5} closes ~${p.liq} · ~${cfg.backtestCostBps ?? 20}bps est. cost (slippage+gas)`,
     `<i>non-custodial: emits an unsigned tx you sign</i>`,
   ].filter(Boolean).join("\n");
 }

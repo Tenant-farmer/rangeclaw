@@ -99,7 +99,7 @@
             <div class="text-right"><div class="font-bold">$${s.price.toFixed(2)}</div><div class="text-xs text-slate-400">APR ${s.apr}%</div><div class="text-xs text-slate-500">${s.mcap ? (s.mcap >= 1000 ? "$" + (s.mcap / 1000).toFixed(2) + "T" : "$" + s.mcap + "B") : ""}</div></div>
           </div>
           <div class="mt-2" style="height:104px"><canvas id="c${i}"></canvas></div>
-          ${sub}${s.earnings ? `<div class="text-xs mt-0.5 ${s.earnings.imminent ? "text-amber-400" : "text-slate-500"}">📅 ${s.earnings.date.slice(5)} earnings · ${s.earnings.confirmed ? "confirmed" : "est."}</div>` : ""}`;
+          ${sub}${s.earnings ? `<div class="text-xs mt-0.5 ${s.earnings.imminent ? "text-amber-400" : "text-slate-500"}">📅 ${s.earnings.date.slice(5)} earnings · ${s.earnings.confirmed ? "confirmed" : "est."}</div>` : ""}${s.poolId ? `<a class="text-xs text-sky-500/80 hover:underline mt-1 inline-block" target="_blank" rel="noopener" href="https://solscan.io/account/${s.poolId}">verify pool ↗</a>` : ""}`;
         grid.appendChild(card);
 
         const n = s.klines.length;
