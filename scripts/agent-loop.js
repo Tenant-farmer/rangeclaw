@@ -21,6 +21,7 @@ const abi = JSON.parse(readFileSync(join(root, "contracts", "AgentJournal.abi.js
 const STATE = join(root, ".state.json");
 const ALERTS = join(root, ".alerts.json");
 const TG = process.env.TELEGRAM_BOT_TOKEN;
+const SIGN = process.env.RG_SIGN === "1"; // loop is READ-ONLY unless RG_SIGN=1 (safe to host keyless)
 const INTERVAL_MIN = Number(process.env.RG_INTERVAL_MIN || 15);
 const pexec = promisify(execFile);
 
@@ -42,6 +43,20 @@ async function alert(text) {
   }
 }
 
+// send a tx with a wait-timeout + one retry, so a stuck RPC can't hang the loop
+async function send(fn) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const tx = await fn();
+      await Promise.race([tx.wait(), new Promise((_, rej) => setTimeout(() => rej(new Error("tx.wait timeout")), 90000))]);
+      return tx;
+    } catch (e) {
+      if (attempt >= 2) throw e;
+      console.warn(`${new Date().toISOString()}  tx retry (${e.message})`);
+    }
+  }
+}
+
 async function tick() {
   const ts = new Date().toISOString();
   const p = await assessPortfolio();
@@ -49,15 +64,18 @@ async function tick() {
   const baseline = state === null; // first run: record actions, don't log/alert
   state = state || {};
 
-  const journal = baseline ? null : new Contract(cfg.mantle.journalAddress, abi, loadWallet(getProvider()));
+  // READ-ONLY unless RG_SIGN=1 with a loadable wallet — a hosted loop can observe + refresh keyless.
+  const w = (!baseline && SIGN) ? loadWallet(getProvider()) : null;
+  const journal = w ? new Contract(cfg.mantle.journalAddress, abi, w) : null;
   for (const a of p.assessments) {
     const r = a.row;
-    // decision change -> log on-chain + Telegram alert
-    if (journal && state[r.pair] !== a.action) {
+    const changed = !baseline && state[r.pair] !== a.action;
+    // alert on decision change (no key needed)
+    if (changed) await alert(`\u{1F985} <b>${r.pair}</b>  ${state[r.pair] || "—"} → <b>${a.action}</b>\n$${r.price.toFixed(2)} · ${a.rationale}`);
+    // log decision on-chain (only when signing)
+    if (journal && changed) {
       const priceE6 = BigInt(Math.round(r.price * 1e6));
-      const tx = await journal.logDecision(a.action, r.pos.tickLower, r.pos.tickUpper, priceE6, a.session.state, `[${r.pair}] ${a.rationale}`);
-      await tx.wait();
-      await alert(`\u{1F985} <b>${r.pair}</b>  ${state[r.pair] || "—"} → <b>${a.action}</b>\n$${r.price.toFixed(2)} · ${a.rationale}`);
+      const tx = await send(() => journal.logDecision(a.action, r.pos.tickLower, r.pos.tickUpper, priceE6, a.session.state, `[${r.pair}] ${a.rationale}`));
       console.log(`${ts}  ${r.pair} ${state[r.pair] || "—"} -> ${a.action}  decision ${tx.hash.slice(0, 12)}…`);
     }
     state[r.pair] = a.action;
@@ -66,8 +84,7 @@ async function tick() {
     const feesUsd = num(r.pos.earnedUsdDisplay), pnlUsd = num(r.pos.pnlUsdDisplay);
     const okey = `${r.pair}#out`, cur = `${feesUsd.toFixed(2)}|${pnlUsd.toFixed(2)}`;
     if (journal && state[okey] !== undefined && state[okey] !== cur) {
-      const tx = await journal.logOutcome(r.pair, BigInt(Math.round(feesUsd * 1e6)), BigInt(Math.round(pnlUsd * 1e6)));
-      await tx.wait();
+      const tx = await send(() => journal.logOutcome(r.pair, BigInt(Math.round(feesUsd * 1e6)), BigInt(Math.round(pnlUsd * 1e6))));
       console.log(`${ts}  ${r.pair} outcome fees $${feesUsd} pnl $${pnlUsd}  ${tx.hash.slice(0, 12)}…`);
     }
     state[okey] = cur;
@@ -77,6 +94,6 @@ async function tick() {
   console.log(`${ts}  tick ${baseline ? "(baseline)" : "done"} · market ${p.session.state} · positions ${p.assessments.length} · subs ${subs().length}`);
 }
 
-console.log(`RangeClaw agent-loop · every ${INTERVAL_MIN}m · log + alert on change`);
+console.log(`RangeClaw agent-loop · every ${INTERVAL_MIN}m · ${SIGN ? "SIGNING on-chain" : "observe-only (set RG_SIGN=1 to write)"}`);
 await tick();
 setInterval(() => tick().catch((e) => console.error("tick error:", e.message)), INTERVAL_MIN * 60 * 1000);

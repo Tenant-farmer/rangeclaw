@@ -12,7 +12,8 @@ import { Wallet, JsonRpcProvider, formatEther } from "ethers";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const WALLET_DIR = join(__dir, "..", ".wallet");
-const KEYSTORE = join(WALLET_DIR, "evm-keypair.json");
+const KEYSTORE = join(WALLET_DIR, "evm-keypair.json"); // legacy plaintext
+const ENC = join(WALLET_DIR, "evm-keystore.json");     // encrypted (preferred for hosting)
 const cfg = JSON.parse(readFileSync(join(__dir, "..", "config.json"), "utf8"));
 
 function save(w) {
@@ -24,15 +25,26 @@ export function getProvider() {
   return new JsonRpcProvider(cfg.mantle.rpc, cfg.mantle.chainId);
 }
 
+// Prefer an encrypted keystore (needs RG_WALLET_PASS); fall back to legacy plaintext
+// with a loud warning. Returns null if no key (or encrypted but no passphrase) — the
+// caller then runs read-only.
 export function loadWallet(provider) {
-  if (!existsSync(KEYSTORE)) return null;
-  const { privateKey } = JSON.parse(readFileSync(KEYSTORE, "utf8"));
-  const w = new Wallet(privateKey);
+  let w = null;
+  if (existsSync(ENC)) {
+    const pass = process.env.RG_WALLET_PASS;
+    if (!pass) { console.warn("evm: encrypted keystore present but RG_WALLET_PASS not set — running keyless."); return null; }
+    w = Wallet.fromEncryptedJsonSync(readFileSync(ENC, "utf8"), pass);
+  } else if (existsSync(KEYSTORE)) {
+    console.warn("evm: ⚠️ loading PLAINTEXT key. Run `node src/evm.js encrypt` before hosting.");
+    w = new Wallet(JSON.parse(readFileSync(KEYSTORE, "utf8")).privateKey);
+  } else return null;
   return provider ? w.connect(provider) : w;
 }
 
 export function getAddress() {
-  return existsSync(KEYSTORE) ? JSON.parse(readFileSync(KEYSTORE, "utf8")).address : null;
+  if (existsSync(ENC)) { const a = JSON.parse(readFileSync(ENC, "utf8")).address; return a ? "0x" + a.replace(/^0x/, "") : null; }
+  if (existsSync(KEYSTORE)) return JSON.parse(readFileSync(KEYSTORE, "utf8")).address;
+  return null;
 }
 
 function promptHidden(query) {
@@ -62,6 +74,15 @@ async function main() {
     const w = secret.includes(" ") ? Wallet.fromPhrase(secret) : new Wallet(secret);
     save(w);
     console.log("\n✅ EVM wallet imported. Address:", w.address, "\n");
+  } else if (cmd === "encrypt") {
+    if (!existsSync(KEYSTORE)) return console.log("No plaintext key to encrypt. Run generate/import first.");
+    const w0 = new Wallet(JSON.parse(readFileSync(KEYSTORE, "utf8")).privateKey);
+    const pass = (process.env.RG_WALLET_PASS || (await promptHidden("New passphrase: "))).trim();
+    if (!pass) return console.log("Empty passphrase — aborted.");
+    if (!existsSync(WALLET_DIR)) mkdirSync(WALLET_DIR, { recursive: true });
+    writeFileSync(ENC, await w0.encrypt(pass), { mode: 0o600 });
+    console.log("\n✅ Encrypted keystore written:", ENC);
+    console.log("   Run the loop with RG_SIGN=1 and RG_WALLET_PASS set to sign; then delete the plaintext:", KEYSTORE, "\n");
   } else if (cmd === "address") {
     console.log(getAddress() || "No EVM wallet. Run: node src/evm.js generate");
   } else if (cmd === "balance") {
@@ -71,7 +92,7 @@ async function main() {
     console.log("Address:", a);
     console.log("Balance:", formatEther(bal), "MNT");
   } else {
-    console.log("Usage: node src/evm.js <generate | import | address | balance>");
+    console.log("Usage: node src/evm.js <generate | import | encrypt | address | balance>");
   }
 }
 
