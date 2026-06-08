@@ -6,7 +6,12 @@
   "description": "Autonomous LP autopilot for tokenized-stock CLMM positions (Mantle Turing Test Hackathon 2026 - Agentic Wallets & Economy track, sponsored by Byreal)",
   "scripts": {
     "monitor": "node src/monitor.js",
-    "bot": "node src/bot.js"
+    "portfolio": "node src/portfolio.js",
+    "guardian": "node src/guardian.js",
+    "bot": "node src/bot.js",
+    "journal": "node src/journal.js",
+    "export": "node scripts/export-data.js",
+    "loop": "node scripts/agent-loop.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",

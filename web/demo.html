@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RangeClaw — 2-min demo reel</title>
+<style>
+  :root { --bg:#0a0f1e; --card:#111a30; --line:#1f2a44; --txt:#e7ecf5; --mut:#93a0bd; --grn:#4ade80; --blu:#60a5fa; --prp:#c084fc; --amb:#fbbf24; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; }
+  body { background:var(--bg); color:var(--txt); font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:6vh 8vw; }
+  .scene { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:6vh 8vw; opacity:0; transform:translateY(14px); transition:opacity .7s ease, transform .7s ease; text-align:center; }
+  .scene.active { opacity:1; transform:none; }
+  .kicker { color:var(--mut); font-size:clamp(13px,1.4vw,18px); letter-spacing:.18em; text-transform:uppercase; }
+  h1 { font-size:clamp(34px,6vw,76px); font-weight:800; letter-spacing:-.02em; line-height:1.05; }
+  h2 { font-size:clamp(26px,4.2vw,52px); font-weight:800; letter-spacing:-.01em; line-height:1.12; }
+  p.lead { font-size:clamp(17px,2.2vw,28px); color:#c8d2e6; max-width:24ch; line-height:1.4; }
+  .big { font-size:clamp(40px,7vw,96px); font-weight:800; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:26px 30px; max-width:780px; width:100%; text-align:left; box-shadow:0 20px 60px #0006; }
+  .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .muted { color:var(--mut); }
+  .badge { padding:4px 12px; border-radius:10px; border:1px solid; font-weight:800; font-size:clamp(14px,1.6vw,20px); }
+  .b-HOLD{ color:var(--grn); border-color:#16a34a66; background:#16a34a1a; }
+  .b-WIDEN{ color:var(--blu); border-color:#2563eb66; background:#2563eb1a; }
+  .b-REBALANCE{ color:var(--prp); border-color:#9333ea66; background:#9333ea1a; }
+  .tg { background:#17212b; border-radius:16px 16px 16px 4px; padding:16px 18px; max-width:640px; width:100%; text-align:left; border:1px solid #243140; }
+  .tg .who { color:#5fb0e6; font-weight:700; font-size:14px; margin-bottom:6px; }
+  .tg .msg { font-size:clamp(15px,1.8vw,21px); line-height:1.5; white-space:pre-wrap; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 24px; min-width:150px; }
+  .stat .n { font-size:clamp(22px,3vw,34px); font-weight:800; }
+  .stat .l { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.12em; }
+  .tx { font-family:ui-monospace,Consolas,monospace; color:var(--blu); font-size:clamp(13px,1.5vw,18px); }
+  .links { font-size:clamp(14px,1.7vw,20px); line-height:1.7; color:#c8d2e6; }
+  .links b { color:#fff; }
+  #bar { position:fixed; left:0; bottom:0; height:5px; width:0%; background:linear-gradient(90deg,var(--blu),var(--grn)); transition:width .25s linear; }
+  #start { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; z-index:10; cursor:pointer; }
+  #start .play { width:96px; height:96px; border-radius:50%; border:2px solid #fff3; display:flex; align-items:center; justify-content:center; font-size:40px; }
+  .hl { color:var(--grn); } .hlb{ color:var(--blu);} .hla{ color:var(--amb);} .hlp{color:var(--prp);}
+  .rng { width:min(680px,90%); height:54px; border:1px solid var(--line); border-radius:12px; position:relative; background:#0d1426; }
+  .rng .band { position:absolute; top:0; bottom:0; left:18%; right:18%; background:#2563eb22; border-left:2px solid #2563eb88; border-right:2px solid #2563eb88; }
+  .rng .px { position:absolute; top:-8px; bottom:-8px; width:3px; background:var(--amb); left:48%; box-shadow:0 0 12px var(--amb); }
+  .rng .px.out { left:6%; background:#f87171; box-shadow:0 0 12px #f87171; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <!-- 1 -->
+    <section class="scene" data-i="0">
+      <div style="font-size:clamp(60px,10vw,120px)">🦅</div>
+      <h1>RangeClaw</h1>
+      <p class="lead">Autonomous Guardian for tokenized-stock liquidity</p>
+      <div class="card">
+        <div class="kicker">My live position · Byreal (Solana)</div>
+        <div class="row" style="margin-top:8px"><span class="big">$7.42K</span><span class="muted">TSLAx / USDC</span></div>
+        <div class="row muted" style="margin-top:8px">Fees earned $121.82 · PnL <span class="hl">+$77.76</span></div>
+      </div>
+      <p class="lead">I'm a <b>real TSLAx liquidity provider.</b></p>
+    </section>
+
+    <!-- 2 -->
+    <section class="scene" data-i="1">
+      <div class="kicker">The problem</div>
+      <h2>Tokenized stocks trade 24/7.<br/>The stock doesn't.</h2>
+      <div class="rng"><div class="band"></div><div class="px out"></div></div>
+      <p class="lead">Over <span class="hla">market closes, weekends &amp; earnings</span>, the price gaps — and a concentrated LP range breaks. A 24/7 crypto bot never sees it coming.</p>
+    </section>
+
+    <!-- 3 -->
+    <section class="scene" data-i="2">
+      <div class="kicker">/status · live, market-aware</div>
+      <div class="tg">
+        <div class="who">🦅 RangeClaw</div>
+        <div class="msg"><b>TSLAx/USDC</b>
+Price: <b>$419.95</b> · APR 52.6%
+Range: 373.94 ~ 504.76
+🟢 IN RANGE · ↓11% ↑20%
+🏛️ Market: PRE_MARKET — TSLA closed
+✅ <b>Guardian: HOLD</b>
+• in range, healthy buffer
+• market closed → no rebalance into the gap</div>
+      </div>
+      <p class="lead">It reads my position <b>and</b> the equity calendar.</p>
+    </section>
+
+    <!-- 4 -->
+    <section class="scene" data-i="3">
+      <div class="kicker">The moat — it knows the equity calendar</div>
+      <div class="tg">
+        <div class="who">🦅 RangeClaw</div>
+        <div class="msg">📅 TSLA earnings in <b>1.6d</b> → expect a gap
+↔️ <b>Guardian: WIDEN</b>
+• widening range now to survive the gap at open</div>
+      </div>
+      <p class="lead">Market-close, weekend &amp; <span class="hlb">earnings-gap</span> logic a generic bot can't do.</p>
+    </section>
+
+    <!-- 5 -->
+    <section class="scene" data-i="4">
+      <div class="kicker">/plan · non-custodial execution</div>
+      <div class="card">
+        <div class="row"><span class="badge b-REBALANCE">REBALANCE</span><span class="muted">recenter</span></div>
+        <div style="margin-top:14px;font-size:clamp(18px,2.4vw,30px)">Old $373.94 – $504.76 &nbsp;→&nbsp; <b>New $361.66 – $488.18</b></div>
+        <div class="muted" style="margin-top:10px">Executed via the <b>Byreal Skills CLI</b> (close + open, auto-swap)</div>
+      </div>
+      <p class="lead"><b>Non-custodial:</b> it builds an unsigned tx I sign. It never holds my key.</p>
+    </section>
+
+    <!-- 6 -->
+    <section class="scene" data-i="5">
+      <div class="kicker">Verifiable on Mantle</div>
+      <h2>Every decision, written on-chain.</h2>
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><span class="row"><span class="badge b-HOLD">HOLD</span> $419.51</span><span class="tx">0x74b258…82856a ↗</span></div>
+        <div class="row" style="justify-content:space-between;margin-top:12px"><span class="row"><span class="badge b-WIDEN">WIDEN</span> $419.60</span><span class="tx">0x6b87d4…918f05 ↗</span></div>
+        <div class="muted" style="margin-top:14px">AgentJournal · Mantle Sepolia · <span class="tx">0x0954…350E</span></div>
+      </div>
+      <p class="lead">"Autonomous agents creating <span class="hl">verifiable, on-chain value.</span>"</p>
+    </section>
+
+    <!-- 7 -->
+    <section class="scene" data-i="6">
+      <div style="font-size:clamp(50px,8vw,96px)">🦅</div>
+      <h2>Autonomous · Equity-aware · Verifiable</h2>
+      <div class="grid3">
+        <div class="stat"><div class="n">Solana</div><div class="l">Byreal Skills CLI</div></div>
+        <div class="stat"><div class="n">Mantle</div><div class="l">On-chain journal</div></div>
+        <div class="stat"><div class="n">Non-custodial</div><div class="l">your keys</div></div>
+      </div>
+      <div class="links" style="margin-top:10px">
+        <div>Live dashboard: <b>euphonious-cannoli-72b96c.netlify.app</b></div>
+        <div>Code: <b>github.com/Tenant-farmer/rangeclaw</b></div>
+        <div style="margin-top:6px;color:#8aa0c8">Agentic Wallets &amp; Economy · #MantleAIHackathon</div>
+      </div>
+    </section>
+  </div>
+  <div id="bar"></div>
+  <div id="start"><div class="play">▶</div><div style="font-size:20px">Play demo</div><div class="muted" style="font-size:14px">~2 min · then screen-record this tab (Win+G)</div></div>
+
+  <script>
+    const scenes = [...document.querySelectorAll('.scene')];
+    const durations = [10, 18, 19, 20, 19, 20, 20]; // seconds, sums to 126s
+    const total = durations.reduce((a,b)=>a+b,0);
+    const bar = document.getElementById('bar');
+    let timer = null, tick = null;
+
+    function go(i){
+      scenes.forEach((s,k)=>s.classList.toggle('active', k===i));
+    }
+    function run(){
+      let i = 0, elapsedBefore = 0; const t0 = performance.now();
+      go(0);
+      // progress bar
+      tick = setInterval(()=>{
+        const sec = (performance.now()-t0)/1000;
+        bar.style.width = Math.min(100, sec/total*100) + '%';
+      }, 120);
+      function next(){
+        elapsedBefore += durations[i];
+        i++;
+        if(i>=scenes.length){ clearInterval(tick); bar.style.width='100%'; showReplay(); return; }
+        go(i);
+        timer = setTimeout(next, durations[i]*1000);
+      }
+      timer = setTimeout(next, durations[0]*1000);
+    }
+    function showReplay(){
+      const s = document.getElementById('start');
+      s.querySelector('.play').textContent='⟳';
+      s.querySelector('div:nth-child(2)').textContent='Replay';
+      s.style.display='flex';
+    }
+    document.getElementById('start').addEventListener('click', ()=>{
+      document.getElementById('start').style.display='none';
+      try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }catch(e){}
+      clearTimeout(timer); clearInterval(tick); bar.style.width='0%';
+      run();
+    });
+    // expose for testing: go(i)
+    window.__go = go;
+  </script>
+</body>
+</html>

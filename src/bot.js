@@ -1,37 +1,48 @@
-// RangeClaw - Telegram bot
-// /status -> reads your live position + market context and replies with the
-// Guardian verdict. Token lives in app/.env (gitignored); never committed.
+// RangeClaw - Telegram bot (v2: portfolio + stock universe).
+//   /status  -> every stock-LP position you hold, with the market-aware verdict
+//   /stocks  -> all tokenized stocks on Byreal, by APR
+//   /plan    -> preview a non-custodial rebalance (TSLAx)
 
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { Bot } from "grammy";
-import { assess, formatGuardian } from "./guardian.js";
+import { assess, assessPortfolio, formatPortfolio } from "./guardian.js";
 import { planRebalance, formatPlan } from "./rebalance.js";
+import { discoverStockPools } from "./portfolio.js";
 
-// Load app/.env (Node >=20.12 / 24 supports process.loadEnvFile).
 try { process.loadEnvFile(fileURLToPath(new URL("../.env", import.meta.url))); } catch {}
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-  console.error("Missing TELEGRAM_BOT_TOKEN - copy .env.example to .env and set it.");
-  process.exit(1);
-}
+if (!token) { console.error("Missing TELEGRAM_BOT_TOKEN - set it in app/.env."); process.exit(1); }
 
 const bot = new Bot(token);
 
 bot.command("start", (ctx) =>
-  ctx.reply("\u{1F985} RangeClaw online.\n/status — position + market-aware Guardian verdict\n/plan — preview the rebalance it would run (non-custodial)")
+  ctx.reply("\u{1F985} RangeClaw online.\n/status — your stock-LP portfolio + market-aware Guardian\n/stocks — all tokenized stocks on Byreal (by APR)\n/plan — preview a non-custodial rebalance")
 );
 
 bot.command("status", async (ctx) => {
   console.log("/status from", ctx.from?.username || ctx.from?.id);
-  await ctx.reply("⏳ Reading your position + market context…");
+  await ctx.reply("⏳ Reading your portfolio + market context…");
   try {
-    const a = await assess();
-    await ctx.reply(formatGuardian(a), { parse_mode: "HTML" });
-  } catch (e) {
-    await ctx.reply("⚠️ Error: " + e.message);
-  }
+    const p = await assessPortfolio();
+    await ctx.reply(formatPortfolio(p), { parse_mode: "HTML" });
+  } catch (e) { await ctx.reply("⚠️ Error: " + e.message); }
+});
+
+bot.command("stocks", async (ctx) => {
+  console.log("/stocks from", ctx.from?.username || ctx.from?.id);
+  await ctx.reply("⏳ Scanning Byreal xStock pools…");
+  try {
+    const stocks = (await discoverStockPools())
+      .filter((p) => p.token_b.symbol === "USDC")
+      .sort((a, b) => b.total_apr - a.total_apr);
+    const lines = ["<b>\u{1F985} Byreal tokenized stocks — by APR</b>", ""];
+    for (const p of stocks) {
+      lines.push(`<b>${p.token_a.symbol}</b>  ${p.total_apr.toFixed(1)}% APR · $${p.current_price.toFixed(2)} · TVL $${(p.tvl_usd / 1000).toFixed(0)}K`);
+    }
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  } catch (e) { await ctx.reply("⚠️ Error: " + e.message); }
 });
 
 bot.command("plan", async (ctx) => {
@@ -40,9 +51,7 @@ bot.command("plan", async (ctx) => {
   try {
     const a = await assess();
     await ctx.reply(formatPlan(planRebalance(a)), { parse_mode: "HTML" });
-  } catch (e) {
-    await ctx.reply("⚠️ Error: " + e.message);
-  }
+  } catch (e) { await ctx.reply("⚠️ Error: " + e.message); }
 });
 
 bot.catch((err) => console.error("bot error:", err));

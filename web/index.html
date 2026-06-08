@@ -4,158 +4,126 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RangeClaw — On-chain LP Guardian</title>
-  <meta name="description" content="Autonomous Guardian for tokenized-stock liquidity. Every decision verifiable on Mantle." />
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .badge-HOLD { background:#16a34a22; color:#4ade80; border-color:#16a34a55; }
-    .badge-WATCH { background:#ca8a0422; color:#fbbf24; border-color:#ca8a0455; }
-    .badge-WIDEN { background:#2563eb22; color:#60a5fa; border-color:#2563eb55; }
-    .badge-REBALANCE { background:#9333ea22; color:#c084fc; border-color:#9333ea55; }
-    .badge-NONE { background:#64748b22; color:#94a3b8; border-color:#64748b55; }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
-  <div class="max-w-3xl mx-auto px-5 py-10">
+  <div class="max-w-4xl mx-auto px-5 py-10">
 
-    <!-- Header -->
-    <header class="mb-8">
+    <header class="mb-6">
       <div class="flex items-center gap-3">
         <span class="text-4xl">🦅</span>
         <div>
           <h1 class="text-2xl font-bold tracking-tight">RangeClaw</h1>
-          <p class="text-slate-400 text-sm">Autonomous Guardian for tokenized-stock liquidity</p>
+          <p class="text-slate-400 text-sm">Autonomous Guardian for tokenized-stock liquidity — verifiable on Mantle</p>
         </div>
       </div>
-      <p class="mt-4 text-slate-300 leading-relaxed">
-        I'm a real <span class="text-white font-semibold">TSLAx liquidity provider</span>. RangeClaw watches my
-        position 24/7, understands <span class="text-white">market hours, weekends &amp; earnings gaps</span> that
-        24/7 crypto bots ignore, and rebalances — writing <span class="text-white font-semibold">every decision
-        on-chain to Mantle</span>, so its judgment is permanently verifiable.
-      </p>
+      <p id="market" class="mt-4 text-slate-300">Loading…</p>
     </header>
 
-    <!-- Latest decision -->
-    <section id="latest" class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 mb-6">
-      <div class="text-slate-400 text-sm">Loading latest decision from Mantle…</div>
-    </section>
+    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Your stock-LP positions</h2>
+    <div id="positions" class="space-y-4 mb-8"><div class="text-slate-500 text-sm">Loading portfolio…</div></div>
 
-    <!-- Stats -->
-    <section class="grid grid-cols-3 gap-3 mb-6">
-      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div class="text-slate-400 text-xs uppercase tracking-wide">Decisions logged</div>
-        <div id="stat-count" class="text-2xl font-bold mt-1">—</div>
-      </div>
-      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div class="text-slate-400 text-xs uppercase tracking-wide">Pair</div>
-        <div class="text-2xl font-bold mt-1">TSLAx/USDC</div>
-      </div>
-      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div class="text-slate-400 text-xs uppercase tracking-wide">Network</div>
-        <div class="text-2xl font-bold mt-1">Mantle</div>
-      </div>
-    </section>
+    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Byreal tokenized stocks — APR</h2>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mb-8">
+      <div style="height:240px"><canvas id="universeChart"></canvas></div>
+    </div>
 
-    <!-- History -->
-    <section>
-      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">On-chain decision journal</h2>
-      <div id="history" class="space-y-3">
-        <div class="text-slate-500 text-sm">Reading the AgentJournal contract…</div>
-      </div>
-    </section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide">On-chain decision journal (live from Mantle)</h2>
+      <span class="text-xs text-slate-500"><span id="count">—</span> logged</span>
+    </div>
+    <div id="journal" class="space-y-2"><div class="text-slate-500 text-sm">Reading the AgentJournal contract…</div></div>
 
-    <!-- Footer -->
     <footer class="mt-10 pt-6 border-t border-slate-800 text-sm text-slate-400">
-      <div>Contract: <a id="contract-link" class="text-sky-400 hover:underline" target="_blank" rel="noopener"></a></div>
-      <div class="mt-1">Built for the Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy track</div>
-      <div class="mt-1 text-slate-600">Data read live from Mantle. Liquidity executed via Byreal Skills CLI (Solana). Non-custodial.</div>
+      <div>Contract: <a class="text-sky-400 hover:underline" target="_blank" href="https://explorer.sepolia.mantle.xyz/address/0x09542c48b8708ed0CeB52a636193A2d932D9350E">0x09542c48b8708ed0CeB52a636193A2d932D9350E</a></div>
+      <div class="mt-1">Built for the Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy · liquidity via Byreal Skills CLI</div>
+      <div id="generated" class="mt-1 text-slate-600"></div>
     </footer>
   </div>
 
   <script type="module">
     import { JsonRpcProvider, Contract } from "https://esm.sh/ethers@6.13.4";
 
-    const CFG = {
-      rpc: "https://rpc.sepolia.mantle.xyz",
-      chainId: 5003,
-      explorer: "https://explorer.sepolia.mantle.xyz",
-      journal: "0x09542c48b8708ed0CeB52a636193A2d932D9350E",
-      fromBlock: 39510000,
-    };
+    const ACTION = { HOLD:"#4ade80", WATCH:"#fbbf24", WIDEN:"#60a5fa", REBALANCE:"#c084fc", NONE:"#94a3b8" };
+    const badge = (a) => `<span class="px-2 py-0.5 rounded-md text-xs font-bold" style="color:${ACTION[a]||'#94a3b8'};background:${(ACTION[a]||'#94a3b8')}22;border:1px solid ${(ACTION[a]||'#94a3b8')}55">${a}</span>`;
+    const gridC = "#1f2a44", tickC = "#64748b";
+
+    // ---------- portfolio + charts (from generated data.json) ----------
+    const data = await fetch("data.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+    if (data) {
+      const m = data.market;
+      document.getElementById("market").innerHTML =
+        `\u{1F3DB}\u{FE0F} US market: <b>${m.isOpen ? "🟢 OPEN" : "🔴 " + m.state}</b> <span class="text-slate-500">· ${m.etTime}</span>`;
+
+      const cont = document.getElementById("positions");
+      cont.innerHTML = "";
+      if (!data.positions.length) cont.innerHTML = `<div class="text-slate-500 text-sm">No stock LP positions yet — open one in any xStock/USDC pool.</div>`;
+      data.positions.forEach((p, i) => {
+        const card = document.createElement("div");
+        card.className = "rounded-2xl border border-slate-800 bg-slate-900/60 p-5";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3"><span class="text-lg font-bold">${p.pair}</span>${badge(p.action)}</div>
+            <div class="text-right"><div class="text-2xl font-bold">$${p.price.toFixed(2)}</div>
+              <div class="text-xs text-slate-400">${p.inRange ? `in range · buffer ${p.buffer}%` : "out of range"}</div></div>
+          </div>
+          <div class="mt-3" style="height:200px"><canvas id="chart${i}"></canvas></div>
+          <div class="mt-2 text-xs text-slate-400">liq ${p.liq} · fees ${p.fees} · PnL ${p.pnl} · range $${p.lo}–$${p.hi}</div>
+          <div class="mt-1 text-sm text-slate-300">${p.rationale}</div>`;
+        cont.appendChild(card);
+
+        const labels = p.klines.map((k) => new Date(k.t * 1000).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit" }));
+        const n = p.klines.length;
+        new Chart(document.getElementById("chart" + i), {
+          type: "line",
+          data: { labels, datasets: [
+            { label: "Price", data: p.klines.map((k) => k.c), borderColor: "#60a5fa", backgroundColor: "#60a5fa22", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true },
+            { label: "Lower", data: Array(n).fill(p.lo), borderColor: "#4ade80", borderWidth: 1, borderDash: [6, 6], pointRadius: 0 },
+            { label: "Upper", data: Array(n).fill(p.hi), borderColor: "#f87171", borderWidth: 1, borderDash: [6, 6], pointRadius: 0 },
+          ] },
+          options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false },
+            plugins: { legend: { display: false } },
+            scales: { x: { ticks: { color: tickC, maxTicksLimit: 6 }, grid: { display: false } }, y: { ticks: { color: tickC }, grid: { color: gridC } } } },
+        });
+      });
+
+      const u = data.universe;
+      new Chart(document.getElementById("universeChart"), {
+        type: "bar",
+        data: { labels: u.map((x) => x.symbol), datasets: [{ label: "APR %", data: u.map((x) => x.apr), backgroundColor: "#38bdf8", borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: "#94a3b8" }, grid: { display: false } }, y: { ticks: { color: tickC, callback: (v) => v + "%" }, grid: { color: gridC } } } },
+      });
+
+      if (data.generatedAt) document.getElementById("generated").textContent = "data snapshot: " + new Date(data.generatedAt).toLocaleString();
+    } else {
+      document.getElementById("positions").innerHTML = `<div class="text-amber-400 text-sm">data.json not found — run <code>node scripts/export-data.js</code> and redeploy.</div>`;
+    }
+
+    // ---------- on-chain decision journal (live from Mantle) ----------
+    const CFG = { rpc: "https://rpc.sepolia.mantle.xyz", chainId: 5003, explorer: "https://explorer.sepolia.mantle.xyz", journal: "0x09542c48b8708ed0CeB52a636193A2d932D9350E", fromBlock: 39510000 };
     const ABI = [
       "event DecisionLogged(uint256 indexed id, address indexed agent, string action, int24 tickLower, int24 tickUpper, uint256 priceE6, string market, string rationale, uint64 timestamp)",
       "function count() view returns (uint256)",
     ];
-
-    // CLMM tick -> human price (USDC per TSLAx); decimals 8/6 -> shift 100.
-    const tickToPrice = (t) => Math.pow(1.0001, Number(t)) * 100;
-    const fmt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    const badge = (a) => `<span class="px-2 py-0.5 rounded-md border text-xs font-bold badge-${a}">${a}</span>`;
-    const short = (h) => h.slice(0, 8) + "…" + h.slice(-6);
-    const ago = (ts) => {
-      const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts));
-      if (s < 60) return s + "s ago";
-      if (s < 3600) return Math.floor(s / 60) + "m ago";
-      if (s < 86400) return Math.floor(s / 3600) + "h ago";
-      return Math.floor(s / 86400) + "d ago";
-    };
-
-    const provider = new JsonRpcProvider(CFG.rpc, CFG.chainId);
-    const contract = new Contract(CFG.journal, ABI, provider);
-
-    document.getElementById("contract-link").textContent = CFG.journal;
-    document.getElementById("contract-link").href = `${CFG.explorer}/address/${CFG.journal}`;
-
-    function renderLatest(d) {
-      const lo = tickToPrice(d.tickLower), hi = tickToPrice(d.tickUpper);
-      const price = Number(d.priceE6) / 1e6;
-      document.getElementById("latest").innerHTML = `
-        <div class="flex items-center justify-between">
-          <div class="text-slate-400 text-xs uppercase tracking-wide">Latest Guardian decision</div>
-          <div class="text-slate-500 text-xs">${ago(d.timestamp)}</div>
-        </div>
-        <div class="mt-2 flex items-center gap-3">
-          ${badge(d.action)}
-          <span class="text-3xl font-bold">$${fmt(price)}</span>
-          <span class="text-slate-400 text-sm">USDC / TSLAx</span>
-        </div>
-        <div class="mt-3 text-sm text-slate-300">Range $${fmt(lo)} – $${fmt(hi)} &nbsp;·&nbsp; Market: <span class="text-white">${d.market}</span></div>
-        <div class="mt-2 text-slate-200">${d.rationale}</div>
-        <div class="mt-3 text-xs text-emerald-400">✓ written on-chain to Mantle — verifiable, immutable</div>`;
+    try {
+      const provider = new JsonRpcProvider(CFG.rpc, CFG.chainId);
+      const c = new Contract(CFG.journal, ABI, provider);
+      document.getElementById("count").textContent = (await c.count()).toString();
+      const ev = await c.queryFilter(c.filters.DecisionLogged(), CFG.fromBlock, "latest");
+      const items = ev.map((e) => ({ d: e.args, tx: e.transactionHash })).reverse();
+      document.getElementById("journal").innerHTML = items.length
+        ? items.map((i) => {
+            const d = i.d, px = (Number(d.priceE6) / 1e6).toFixed(2);
+            return `<div class="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-sm flex items-center justify-between gap-3">
+              <div>${badge(d.action)} <span class="font-semibold">$${px}</span> <span class="text-slate-500 text-xs">${d.market}</span> — ${d.rationale}</div>
+              <a class="text-sky-400 text-xs whitespace-nowrap" target="_blank" rel="noopener" href="${CFG.explorer}/tx/${i.tx}">tx ↗</a></div>`;
+          }).join("")
+        : `<div class="text-slate-500 text-sm">No decisions logged yet.</div>`;
+    } catch (e) {
+      document.getElementById("journal").innerHTML = `<div class="text-rose-400 text-sm">Couldn't read Mantle RPC: ${e.message}</div>`;
     }
-
-    function renderRow(d, tx) {
-      const price = Number(d.priceE6) / 1e6;
-      return `<div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">${badge(d.action)}<span class="font-semibold">$${fmt(price)}</span><span class="text-slate-500 text-xs">${d.market}</span></div>
-          <a class="text-sky-400 hover:underline text-xs" target="_blank" rel="noopener" href="${CFG.explorer}/tx/${tx}">${short(tx)} ↗</a>
-        </div>
-        <div class="mt-2 text-sm text-slate-300">${d.rationale}</div>
-        <div class="mt-1 text-xs text-slate-500">${ago(d.timestamp)}</div>
-      </div>`;
-    }
-
-    async function load() {
-      try {
-        const n = await contract.count();
-        document.getElementById("stat-count").textContent = n.toString();
-        const events = await contract.queryFilter(contract.filters.DecisionLogged(), CFG.fromBlock, "latest");
-        if (!events.length) {
-          document.getElementById("history").innerHTML = `<div class="text-slate-500 text-sm">No decisions logged yet.</div>`;
-          return;
-        }
-        const items = events.map((e) => ({ d: e.args, tx: e.transactionHash, block: e.blockNumber })).reverse();
-        renderLatest(items[0].d);
-        document.getElementById("history").innerHTML = items.map((i) => renderRow(i.d, i.tx)).join("");
-      } catch (err) {
-        const msg = (err && err.message) || String(err);
-        document.getElementById("latest").innerHTML =
-          `<div class="text-rose-400 text-sm">Couldn't read Mantle RPC from the browser (${msg}). If this is a CORS/RPC issue, try a different Mantle Sepolia RPC in CFG.rpc.</div>`;
-      }
-    }
-
-    load();
-    setInterval(load, 30000);
   </script>
 </body>
 </html>

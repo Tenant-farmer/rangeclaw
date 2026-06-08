@@ -1,78 +1,67 @@
-# 🦅 RangeClaw — Autonomous Guardian for Tokenized-Stock Liquidity
+# 🦅 RangeClaw — Autonomous Guardian for tokenized-stock liquidity
 
-**Mantle Turing Test Hackathon 2026 · Agentic Wallets & Economy track (sponsored by Byreal)**
-Track path: *DeFi Deep Dive → "Automated portfolio rebalancing with on-chain execution."*
+**Mantle Turing Test Hackathon 2026 · Agentic Wallets & Economy track (Byreal)**
 
 > **Live dashboard:** https://euphonious-cannoli-72b96c.netlify.app/
 > **AgentJournal (Mantle Sepolia):** [`0x09542c48b8708ed0CeB52a636193A2d932D9350E`](https://explorer.sepolia.mantle.xyz/address/0x09542c48b8708ed0CeB52a636193A2d932D9350E)
 
----
+An autonomous agent that manages a **portfolio of tokenized-stock LP positions** on Byreal, understands the **equity-market calendar**, and writes every decision **on-chain to Mantle**.
 
-## The problem (from a real LP)
+## The problem (I live it)
+I'm a real tokenized-stock liquidity provider. Tokenized stocks trade **24/7 on-chain**, but the underlying equities only trade market hours — so concentrated LP ranges **gap over market closes, weekends, and earnings**. A generic 24/7 crypto bot gets caught on the wrong side of the gap.
 
-I run an actual **TSLAx/USDC** concentrated-liquidity position on Byreal. Tokenized stocks trade **24/7 on-chain**, but the underlying equity only trades NYSE/Nasdaq hours — so the position gaps over **market closes, weekends, and earnings**. A generic "AI yield" bot treats it like any crypto pair and gets wrecked by those gaps. Managing it by hand means waking up at 2am.
+## What it does (v2 — whole portfolio)
+- **Discovers every xStock pool on Byreal** (15 pools — TSLAx, NVDAx, AAPLx, GOOGLx, METAx, AMZNx, COINx, HOODx, MSTRx, MCDx, CRCLx, …); new listings auto-included.
+- **Monitors all your stock LP positions** and decides `HOLD / WATCH / WIDEN / REBALANCE` per position with a plain-language rationale.
+- **Equity-aware:** shared US market-hours / weekend / holiday logic **+ per-ticker earnings** (widens the range before earnings, defers rebalances into closed-market gaps).
+- **Non-custodial rebalancing** via the Byreal Skills CLI — builds an unsigned tx you sign; never holds your key.
+- **On-chain decision journal** on Mantle (per-position, pair-tagged) — permanent, verifiable.
+- **Autonomous loop** that logs decisions *on change* and refreshes the dashboard.
 
-**RangeClaw** is an autonomous agent that watches the position, *understands equity-market context*, rebalances via the Byreal Skills CLI, and writes **every decision on-chain to Mantle** so its judgment is permanently verifiable — exactly the hackathon's thesis: *autonomous agents creating verifiable, on-chain value.*
-
-## What makes it different
-- **Equity-aware Guardian** (the moat): knows market hours / weekends / NYSE holidays / earnings proximity and adjusts — e.g. *"market closed → defer rebalance to avoid the gap"*, *"earnings in 1.6d → widen range now."* A 24/7 crypto bot can't do this.
-- **Risk-check before acting** (Plutus-style verification folded into one step): slippage, range buffer, anti-churn, market state.
-- **Non-custodial**: the agent never holds your key. Execution produces an **unsigned transaction you sign** (`--unsigned-tx`), or runs through a dedicated wallet you control.
-- **On-chain verifiability**: each decision (`HOLD/WATCH/WIDEN/REBALANCE` + price, range, market, rationale) is logged to the AgentJournal contract on Mantle.
+## Surfaces
+- **Telegram bot:** `/status` (portfolio + market-aware verdicts) · `/stocks` (all stocks by APR) · `/plan` (rebalance preview).
+- **Web dashboard (charts):** per-position **price + range** line chart, **APR bar chart** across the stock universe, and the **live on-chain decision journal** read straight from the Mantle contract.
 
 ## Architecture
 ```
- Byreal Skills CLI (Solana)          Guardian brain                 Mantle
- ┌───────────────────┐   JSON   ┌──────────────────────┐   logDecision   ┌──────────────┐
- │ pools / positions │ ───────▶ │ in-range? buffer?    │ ──────────────▶ │ AgentJournal │
- │ (read-only)       │          │ market open/closed?  │                 │ (verifiable) │
- └───────────────────┘          │ earnings soon?       │                 └──────┬───────┘
-        ▲                       │  → decision+rationale│                        │
-        │ rebalance (close+open │  → HOLD/WIDEN/REBAL  │                        ▼
-        │ --auto-swap, unsigned)└──────────┬───────────┘            public web dashboard
-        └──────────────────────────────────┤                       + Telegram /status /plan
-                                  non-custodial signing
+ Byreal Skills CLI (Solana)         Guardian brain (per position)        Mantle
+ discover xStock pools + your  ───▶ in-range? buffer? market open?  ───▶ AgentJournal
+ positions (read-only, JSON)        earnings soon? → HOLD/WATCH/         (logDecision,
+        ▲                           WIDEN/REBALANCE + rationale          verifiable)
+        │ rebalance (unsigned tx)            │                                │
+        └────── non-custodial sign ──────────┘                 charts dashboard + Telegram
 ```
-- **Liquidity execution** runs on **Solana** via Byreal Agent Skills (where the TSLAx CLMM pool lives) — the track allows *"Deploy on Mantle or Solana."*
-- **Identity + decision journal** live on **Mantle** (the submission contract + the AI-powered on-chain function).
-
-## On-chain proof (Mantle Sepolia)
-The agent has already written decisions on-chain:
-| Action | Price | Market | Tx |
-|---|---|---|---|
-| `HOLD` | $419.51 | PRE_MARKET | [`0x74b258…82856a`](https://explorer.sepolia.mantle.xyz/tx/0x74b258e0f376c23790d5b28da1bdb3a58312a422273f4b46a4e183d86182856a) |
-| `WIDEN` | $419.60 | PRE_MARKET (earnings in 1.6d) | [`0x6b87d4…918f05`](https://explorer.sepolia.mantle.xyz/tx/0x6b87d430e30283d66f3279c83aabecdaf9b8ff9ae828b236fcfded8e79918f05) |
+Liquidity executes on **Solana** (Byreal CLMM, where the xStock pools live — the track allows *Mantle or Solana*); agent identity + decision journal live on **Mantle**.
 
 ## Components (`app/`)
 | File | Role |
 |---|---|
-| `src/byreal.js` | Byreal Skills CLI JSON wrapper (read-only) |
-| `src/monitor.js` | Position snapshot + in-range / headroom |
-| `src/equity.js` | US market session + earnings awareness ⭐ |
-| `src/guardian.js` | Decision brain (HOLD/WATCH/WIDEN/REBALANCE + rationale) ⭐ |
-| `src/rebalance.js` | Recenter plan + non-custodial close/open commands |
-| `src/journal.js` | Writes decisions on-chain (`logDecision`) |
-| `src/wallet.js` / `src/evm.js` | Non-custodial wallets (Solana / Mantle), local keystore |
-| `src/bot.js` | Telegram bot (`/status`, `/plan`) |
-| `contracts/AgentJournal.sol` | On-chain decision log (Mantle) |
-| `scripts/deploy.js` · `verify.js` | Compile + deploy + verify |
-| `web/index.html` | Public dashboard reading the journal live from Mantle |
+| `src/byreal.js` | Byreal Skills CLI JSON wrapper |
+| `src/portfolio.js` | discover xStock pools + read all positions |
+| `src/equity.js` | US market session + per-ticker earnings |
+| `src/guardian.js` | portfolio decision brain |
+| `src/rebalance.js` | non-custodial rebalance planner |
+| `src/journal.js` | log decisions on-chain (per position) |
+| `src/wallet.js` · `src/evm.js` | non-custodial wallets (Solana / Mantle) |
+| `src/bot.js` | Telegram bot |
+| `scripts/export-data.js` | build `web/data.json` for the charts |
+| `scripts/agent-loop.js` | autonomous tick (log-on-change + refresh) |
+| `scripts/deploy.js` · `verify.js` | contract deploy / verify |
+| `contracts/AgentJournal.sol` | on-chain decision log (Mantle) |
+| `web/index.html` | charted public dashboard |
 
-## Run it
-Requires Node 18+.
+## Run
 ```bash
 npm install -g @byreal-io/byreal-cli
 cd app && npm install
 
-npm run monitor          # read your live position (read-only, no key)
-node src/guardian.js     # see the market-aware decision + rationale
-node src/journal.js      # write the current decision on-chain (Mantle)
-npm run bot              # Telegram bot (set TELEGRAM_BOT_TOKEN in .env)
+npm run portfolio   # discover stocks + your positions (read-only)
+npm run guardian    # market-aware portfolio decisions
+npm run export      # build dashboard data (web/data.json)
+npm run bot         # Telegram bot (/status, /stocks, /plan)
+npm run loop        # autonomous loop: log decisions on change + refresh data
 ```
-Monitoring is **fully read-only** (no private key). See `.env.example`.
-
-## Security
-RangeClaw **never reads or stores your private key in plaintext anywhere it's transmitted**. Keys live only in `app/.wallet/` (gitignored). Execution is non-custodial: byreal-cli signs with a keypair you set locally, or RangeClaw emits an unsigned transaction you sign yourself.
+Monitoring is fully read-only (no key). Execution & journaling are **non-custodial** — keys live only in `app/.wallet/` (gitignored), never transmitted.
 
 ## Tech
-Node.js · Byreal Agent Skills (Solana CLMM) · ethers v6 · Solidity ^0.8 · Mantle Sepolia · grammY (Telegram) · Tailwind.
+Node.js · Byreal Agent Skills (Solana CLMM) · ethers v6 · Solidity ^0.8 (Mantle Sepolia) · grammY (Telegram) · Chart.js · Tailwind.
