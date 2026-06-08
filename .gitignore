@@ -13,6 +13,8 @@ id.json
 # agent runtime state
 .state.json
 .alerts.json
+# generated unsigned transactions (you sign these locally)
+unsigned-*.json
 # demo media lives on X / the submission, not in the code repo
 *.mp4
 image-*.png

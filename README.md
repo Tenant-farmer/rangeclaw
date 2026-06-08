@@ -19,8 +19,8 @@ I'm a real tokenized-stock liquidity provider. Tokenized stocks trade **24/7 on-
 - **Autonomous loop** that logs decisions *on change* and refreshes the dashboard.
 
 ## Surfaces
-- **Telegram bot:** `/status` (portfolio + market-aware verdicts) · `/stocks` (all stocks by APR) · `/plan` (rebalance preview).
-- **Web dashboard (charts):** per-position **price + range** line chart, **APR bar chart** across the stock universe, and the **live on-chain decision journal** read straight from the Mantle contract.
+- **Telegram bot:** `/status` (portfolio + market-aware verdicts) · `/stocks` (all stocks by APR) · `/plan` (rebalance preview) · `/hedge` (delta-hedge via Byreal Perps) · `/alerts` (DM me when a position changes).
+- **Web dashboard (charts):** a price + range chart for **every** tokenized stock (held positions show the range band + a backtest "in-range %"), an **"Open a guarded position"** onboarding flow, and the **live on-chain decision journal** read straight from the Mantle contract.
 
 ## Architecture
 ```
@@ -58,8 +58,11 @@ cd app && npm install
 npm run portfolio   # discover stocks + your positions (read-only)
 npm run guardian    # market-aware portfolio decisions
 npm run export      # build dashboard data (web/data.json)
-npm run bot         # Telegram bot (/status, /stocks, /plan)
-npm run loop        # autonomous loop: log decisions on change + refresh data
+npm run bot         # Telegram bot (/status, /stocks, /plan, /hedge, /alerts)
+npm run loop        # autonomous loop: log + alert on change, refresh data
+npm run hedge       # delta-hedge advisor (Byreal Perps)
+npm run build-tx    # generate an unsigned rebalance tx (you sign)
+npm run serve       # host the live dashboard (web/ + auto-refresh)
 ```
 Monitoring is fully read-only (no key). Execution & journaling are **non-custodial** — keys live only in `app/.wallet/` (gitignored), never transmitted.
 

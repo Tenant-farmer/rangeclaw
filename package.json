@@ -11,7 +11,10 @@
     "bot": "node src/bot.js",
     "journal": "node src/journal.js",
     "export": "node scripts/export-data.js",
-    "loop": "node scripts/agent-loop.js"
+    "loop": "node scripts/agent-loop.js",
+    "hedge": "node src/hedge.js",
+    "build-tx": "node scripts/build-tx.js",
+    "serve": "node server.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
