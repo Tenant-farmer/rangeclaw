@@ -4,6 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RangeClaw — On-chain LP Guardian</title>
+  <meta name="description" content="Autonomous Guardian for tokenized-stock liquidity on Byreal — equity-calendar-aware, volatility-sized, every decision logged on Mantle." />
+  <meta property="og:title" content="RangeClaw — Autonomous LP Guardian" />
+  <meta property="og:description" content="Guards tokenized-stock liquidity across nights, weekends & earnings — vol-sized ranges, EV-gated rebalancing, every decision verifiable on Mantle." />
+  <meta property="og:image" content="og.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="RangeClaw — Autonomous LP Guardian" />
+  <meta name="twitter:description" content="Equity-aware, vol-sized, EV-gated tokenized-stock LP management — verifiable on Mantle." />
+  <meta name="twitter:image" content="og.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
@@ -22,6 +31,7 @@
       <p id="heartbeat" class="text-xs text-slate-500 mt-3"></p>
       <p id="market" class="mt-2 text-slate-300">Loading…</p>
       <a href="onboard.html" class="inline-block mt-3 text-sm px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-semibold">+ Open a guarded position →</a>
+      <button id="sharex" class="inline-block mt-3 ml-2 text-sm px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 font-semibold">𝕏 Share</button>
       <div id="realized" class="mt-4 rounded-xl border border-emerald-700/40 bg-emerald-500/5 px-4 py-3 text-sm hidden"></div>
     </header>
 
@@ -141,6 +151,12 @@
     } catch (e) {
       document.getElementById("journal").innerHTML = `<div class="text-rose-400 text-sm">Couldn't read Mantle RPC: ${e.message}</div>`;
     }
+
+    document.getElementById("sharex")?.addEventListener("click", () => {
+      const r = (document.getElementById("realized")?.innerText || "").replace(/\s+/g, " ").trim();
+      const txt = `\u{1F985} RangeClaw — my autonomous guardian for tokenized-stock LPs on @byreal_io${r ? ": " + r : ""} · every decision logged on-chain. #MantleAIHackathon #Mantle`;
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(location.href)}`, "_blank", "noopener");
+    });
   </script>
 </body>
 </html>
