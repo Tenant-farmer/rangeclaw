@@ -1,0 +1,8 @@
+node_modules
+.git
+.wallet
+.env
+.env.*
+.state.json
+*.mp4
+image-*.png

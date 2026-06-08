@@ -13,8 +13,8 @@
   "earningsWindowDays": 3,
   "earningsWidenFactor": 1.5,
   "earnings": {
-    "_note": "estimated next-earnings dates — verify/update; ETFs (SPY/QQQ) have none",
-    "TSLA": "2026-07-22", "NVDA": "2026-08-26", "AAPL": "2026-07-30",
+    "_note": "TSLA/NVDA/AAPL/GOOGL/META/AMZN from earnings calendars; others estimated — verify",
+    "TSLA": "2026-07-29", "NVDA": "2026-08-26", "AAPL": "2026-07-30",
     "GOOGL": "2026-07-28", "META": "2026-07-29", "AMZN": "2026-07-30",
     "MSTR": "2026-07-31", "COIN": "2026-08-06", "HOOD": "2026-08-05",
     "MCD": "2026-07-28", "CRCL": "2026-08-12"

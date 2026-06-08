@@ -1,71 +1,61 @@
-// RangeClaw - Rebalance planner.
-// Computes the NEW range for a rebalance (recenter on current price, preserve
-// width; widen ahead of earnings) and emits the exact byreal-cli commands.
-// It does NOT move funds. Execution uses byreal-cli's NON-CUSTODIAL path:
-//   --unsigned-tx --wallet-address <you>  -> outputs an unsigned tx YOU sign,
-// or --dry-run to preview. RangeClaw never holds your private key.
+// RangeClaw - rebalance planner (v2: any stock position).
+// planRebalance(row) recenters ANY xStock/USDC position (per-pool decimals) and
+// emits non-custodial byreal-cli commands (--unsigned-tx, you sign). planAll()
+// produces a plan for every position. No funds move here.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
-import { tickToPrice, priceToTick } from "./monitor.js";
-import { assess } from "./guardian.js";
+import { portfolio } from "./portfolio.js";
 
 const cfg = JSON.parse(readFileSync(fileURLToPath(new URL("../config.json", import.meta.url)), "utf8"));
 
-export function planRebalance(a) {
-  const { s, action } = a;
-  if (!s.pos) return null;
-  const curWidth = s.pos.tickUpper - s.pos.tickLower;
-  const widen = action === "WIDEN";
-  const width = Math.round(curWidth * (widen ? (cfg.earningsWidenFactor || 1.5) : 1));
+export function planRebalance(row, opts = {}) {
+  const pool = row.pool;
+  const shift = 10 ** (pool.token_a.decimals - pool.token_b.decimals);
+  const tickToPrice = (t) => Math.pow(1.0001, t) * shift;
+  const priceToTick = (p) => Math.log(p / shift) / Math.log(1.0001);
+  const widen = opts.widen ?? false;
+  const width = Math.round((row.pos.tickUpper - row.pos.tickLower) * (widen ? (cfg.earningsWidenFactor || 1.5) : 1));
   const half = Math.round(width / 2);
-  const curTick = Math.round(priceToTick(s.price));
-  const newTickLower = curTick - half;
-  const newTickUpper = curTick + half;
-  const newLow = tickToPrice(newTickLower);
-  const newHigh = tickToPrice(newTickUpper);
+  const curTick = Math.round(priceToTick(row.price));
+  const newLow = tickToPrice(curTick - half);
+  const newHigh = tickToPrice(curTick + half);
   const owner = cfg.ownerWallet;
-
-  // Step 1: close current position, collapse to USDC (non-custodial unsigned tx).
-  const closeCmd = `byreal-cli positions close --nft-mint ${cfg.positionNft} --auto-swap --output-mint ${cfg.tokenBMint} --unsigned-tx --wallet-address ${owner}`;
-  // Step 2: open the new range, depositing that USDC via auto-swap.
-  const openCmd = `byreal-cli positions open --pool ${cfg.poolAddress} --price-lower ${newLow.toFixed(2)} --price-upper ${newHigh.toFixed(2)} --base ${cfg.tokenBMint} --amount <USDC_FROM_CLOSE> --auto-swap --unsigned-tx --wallet-address ${owner}`;
-
+  const outMint = pool.token_b.mint; // USDC side
+  const closeCmd = `byreal-cli positions close --nft-mint ${row.pos.nftMintAddress} --auto-swap --output-mint ${outMint} --unsigned-tx --wallet-address ${owner}`;
+  const openCmd = `byreal-cli positions open --pool ${pool.id} --price-lower ${newLow.toFixed(2)} --price-upper ${newHigh.toFixed(2)} --base ${outMint} --amount <USDC_FROM_CLOSE> --auto-swap --unsigned-tx --wallet-address ${owner}`;
   return {
-    action, widen,
-    oldLow: tickToPrice(s.pos.tickLower), oldHigh: tickToPrice(s.pos.tickUpper),
-    newLow, newHigh, newTickLower, newTickUpper, widthTicks: width,
-    price: s.price, liqUsd: s.pos.liquidityUsdDisplay,
+    pair: row.pair, widen,
+    oldLow: tickToPrice(row.pos.tickLower), oldHigh: tickToPrice(row.pos.tickUpper),
+    newLow, newHigh, price: row.price, liq: row.pos.liquidityUsdDisplay,
     closeCmd, openCmd,
   };
+}
+
+export async function planAll(owner = cfg.ownerWallet) {
+  const { rows } = await portfolio(owner);
+  return rows.map((r) => planRebalance(r));
 }
 
 export function formatPlan(p) {
   if (!p) return "No position to rebalance.";
   return [
-    `<b>\u{1F501} Rebalance plan${p.widen ? " — WIDEN for earnings" : ""}</b>`,
-    ``,
-    `Current price: ${p.price.toFixed(2)}`,
-    `Old range: ${p.oldLow.toFixed(2)} ~ ${p.oldHigh.toFixed(2)}`,
-    `New range: <b>${p.newLow.toFixed(2)} ~ ${p.newHigh.toFixed(2)}</b> (recentered)`,
-    `Liquidity ${p.liqUsd} → redeployed via auto-swap`,
-    ``,
-    `<i>Non-custodial: outputs an unsigned tx you sign. RangeClaw never holds your key.</i>`,
+    `<b>\u{1F501} ${p.pair} rebalance${p.widen ? " (WIDEN)" : ""}</b>`,
+    `Current $${p.price.toFixed(2)} · old $${p.oldLow.toFixed(2)}–$${p.oldHigh.toFixed(2)}`,
+    `→ new <b>$${p.newLow.toFixed(2)}–$${p.newHigh.toFixed(2)}</b> (recentered, ${p.liq})`,
+    `<i>non-custodial: emits an unsigned tx you sign</i>`,
   ].join("\n");
 }
 
 async function main() {
-  const a = await assess();
-  const p = planRebalance(a);
-  console.log(`\n=== Rebalance plan (current Guardian action: ${a.action}) ===`);
-  if (!p) { console.log("No position."); return; }
-  console.log(`Current price : ${p.price.toFixed(2)}`);
-  console.log(`Old range     : ${p.oldLow.toFixed(2)} ~ ${p.oldHigh.toFixed(2)}`);
-  console.log(`New range     : ${p.newLow.toFixed(2)} ~ ${p.newHigh.toFixed(2)}   (width ${p.widthTicks} ticks${p.widen ? ", WIDENED" : ""})`);
-  console.log(`\nStep 1 (close → USDC, non-custodial unsigned tx):\n  ${p.closeCmd}`);
-  console.log(`\nStep 2 (open new range):\n  ${p.openCmd}`);
-  console.log(`\nNote: swap --unsigned-tx for --dry-run to preview, or --confirm to execute (needs YOUR wallet set locally).`);
+  const plans = await planAll();
+  if (!plans.length) { console.log("No stock positions to plan."); return; }
+  for (const p of plans) {
+    console.log(`\n[${p.pair}] $${p.price.toFixed(2)}  old $${p.oldLow.toFixed(2)}-$${p.oldHigh.toFixed(2)} -> new $${p.newLow.toFixed(2)}-$${p.newHigh.toFixed(2)}`);
+    console.log(`  close: ${p.closeCmd}`);
+    console.log(`  open : ${p.openCmd}`);
+  }
   console.log("");
 }
 
