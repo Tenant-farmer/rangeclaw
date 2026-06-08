@@ -10,7 +10,7 @@ import process from "node:process";
 import { byreal } from "../src/byreal.js";
 import { portfolio } from "../src/portfolio.js";
 import { decide } from "../src/guardian.js";
-import { marketSession } from "../src/equity.js";
+import { marketSession, earningsContext } from "../src/equity.js";
 import { backtest } from "../src/backtest.js";
 import { realizedVolDaily, volWidthPct } from "../src/strategy.js";
 
@@ -61,6 +61,12 @@ async function main() {
         inRangePct,
       });
     }
+    const eDate = cfg.earnings?.[entry.ticker];
+    if (eDate) {
+      const ec = earningsContext(eDate, cfg.earningsWindowDays, now, (cfg.earningsConfirmed || []).includes(entry.ticker));
+      entry.earnings = { date: eDate, daysUntil: Math.round(ec.daysUntil), confirmed: ec.confirmed, imminent: ec.imminent };
+    }
+
     const daily = await klinesDaily(p.id);
     const sigma = realizedVolDaily(daily);
     const widthPct = volWidthPct(sigma, { horizonDays: cfg.volHorizonDays ?? 7, k: cfg.volK ?? 2 }) ?? (cfg.defaultWidthPct ?? 0.05);

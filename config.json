@@ -31,6 +31,7 @@
     "MCD": "2026-07-28",
     "CRCL": "2026-08-12"
   },
+  "earningsConfirmed": ["TSLA", "NVDA", "AAPL", "GOOGL", "META", "AMZN"],
   "marketCaps": {
     "_note": "approx USD billions, mid-2026 (cross-checked); ETFs=AUM; STRC=preferred par",
     "NVDA": 4980,

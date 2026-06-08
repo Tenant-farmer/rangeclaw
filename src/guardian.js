@@ -24,7 +24,7 @@ function rules(inRange, buffer, ticker, session, earnings) {
   else reasons.push(`in range, healthy buffer (${buffer.toFixed(1)}%)`);
 
   if (earnings.imminent) {
-    reasons.push(`${ticker} earnings in ${earnings.daysUntil.toFixed(1)}d -> expect a gap`);
+    reasons.push(`${ticker} earnings in ${earnings.daysUntil.toFixed(1)}d (${earnings.confirmed ? "confirmed" : "estimated"}) -> expect a gap`);
     if (action === "HOLD") action = "WIDEN";
   }
   if (session.isClosed) {
@@ -42,7 +42,7 @@ function rules(inRange, buffer, ticker, session, earnings) {
 // ctx may carry { aprPct, sigmaDaily } so the EV gate + vol-sizing can run.
 export function decide(row, now = new Date(), ctx = {}) {
   const session = marketSession(now);
-  const earnings = earningsContext(cfg.earnings?.[row.ticker], cfg.earningsWindowDays, now);
+  const earnings = earningsContext(cfg.earnings?.[row.ticker], cfg.earningsWindowDays, now, (cfg.earningsConfirmed || []).includes(row.ticker));
   const base = rules(row.inRange, row.buffer, row.ticker, session, earnings);
   let action = base.action;
   const reasons = [...base.reasons];
@@ -94,7 +94,7 @@ export function formatPortfolio(p) {
     const sdot = r.inRange ? "\u{1F7E2}" : "\u{1F534}";
     lines.push(`${ACTION_EMOJI[a.action] || ""} <b>${r.pair}</b> ${sdot} $${r.price.toFixed(2)} — <b>${a.action}</b>`);
     lines.push(`   ${r.inRange ? `buffer ${r.buffer.toFixed(1)}% · range $${r.lo.toFixed(0)}–$${r.hi.toFixed(0)}` : "out of range"} · liq ${r.pos.liquidityUsdDisplay} · fees ${r.pos.earnedUsdDisplay}`);
-    if (a.earnings.imminent) lines.push(`   ⚠️ ${r.ticker} earnings in ${a.earnings.daysUntil.toFixed(1)}d`);
+    if (a.earnings.imminent) lines.push(`   ⚠️ ${r.ticker} earnings in ${a.earnings.daysUntil.toFixed(1)}d (${a.earnings.confirmed ? "confirmed" : "est."})`);
   }
   return lines.join("\n");
 }
@@ -103,7 +103,7 @@ export function formatPortfolio(p) {
 export async function assess(now = new Date()) {
   const s = await snapshot();
   const session = marketSession(now);
-  const earnings = earningsContext(cfg.earnings?.TSLA || cfg.nextEarnings, cfg.earningsWindowDays, now);
+  const earnings = earningsContext(cfg.earnings?.TSLA || cfg.nextEarnings, cfg.earningsWindowDays, now, (cfg.earningsConfirmed || []).includes("TSLA"));
   if (!s.pos) return { s, session, earnings, action: "NONE", reasons: ["no active position"], rationale: "No active position." };
   const { action, reasons, rationale } = rules(s.inRange, s.buffer, "TSLA", session, earnings);
   return { s, session, earnings, action, reasons, rationale };

@@ -58,13 +58,14 @@ export function marketSession(now = new Date()) {
   };
 }
 
-export function earningsContext(nextEarningsISO, windowDays = 3, now = new Date()) {
-  if (!nextEarningsISO) return { known: false, imminent: false };
+export function earningsContext(nextEarningsISO, windowDays = 3, now = new Date(), confirmed = false) {
+  if (!nextEarningsISO) return { known: false, imminent: false, confirmed: false };
   const days = (new Date(nextEarningsISO).getTime() - now.getTime()) / 86400000;
   return {
     known: true,
     date: nextEarningsISO,
     daysUntil: days,
     imminent: days >= 0 && days <= windowDays,
+    confirmed,
   };
 }
