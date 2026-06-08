@@ -12,6 +12,7 @@ import { portfolio } from "../src/portfolio.js";
 import { decide } from "../src/guardian.js";
 import { marketSession } from "../src/equity.js";
 import { backtest } from "../src/backtest.js";
+import { realizedVolDaily, volWidthPct } from "../src/strategy.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cfg = JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
@@ -60,11 +61,11 @@ async function main() {
         inRangePct,
       });
     }
-    const bt = backtest(await klinesDaily(p.id), {
-      aprPct: entry.apr, widthPct: cfg.defaultWidthPct ?? 0.05,
-      costBps: cfg.backtestCostBps ?? 20, periodsPerYear: 365,
-    });
-    if (bt) entry.bt = bt;
+    const daily = await klinesDaily(p.id);
+    const sigma = realizedVolDaily(daily);
+    const widthPct = volWidthPct(sigma, { horizonDays: cfg.volHorizonDays ?? 7, k: cfg.volK ?? 2 }) ?? (cfg.defaultWidthPct ?? 0.05);
+    const bt = backtest(daily, { aprPct: entry.apr, widthPct, costBps: cfg.backtestCostBps ?? 20, periodsPerYear: 365 });
+    if (bt) { entry.bt = bt; entry.sigmaPct = sigma ? +(sigma * 100).toFixed(1) : null; entry.widthPct = +(widthPct * 100).toFixed(1); }
     stocks.push(entry);
   }
   stocks.sort((a, b) => (b.mcap - a.mcap) || (b.apr - a.apr)); // market cap desc
@@ -72,7 +73,7 @@ async function main() {
   const out = { generatedAt: now.toISOString(), market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime }, stocks };
   writeFileSync(join(root, "web", "data.json"), JSON.stringify(out));
   console.log(`Wrote data.json · market=${session.state} · stocks=${stocks.length} · held=${rows.length}`);
-  stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} ${s.held ? s.action : "-"} $${s.price} APR ${s.apr}% · netEdge ${s.bt ? s.bt.netEdgeBps : "-"}bps (${s.bt ? s.bt.rebalances : "-"} rebal)`));
+  stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} σ${s.sigmaPct ?? "-"}% ±${s.widthPct ?? "-"}% APR ${s.apr}% · netEdge ${s.bt ? s.bt.netEdgeBps : "-"}bps (${s.bt ? s.bt.rebalances : "-"} rebal)`));
 }
 
 main().catch((e) => { console.error("ERROR:", e.message); process.exit(1); });

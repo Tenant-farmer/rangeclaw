@@ -26,3 +26,14 @@ export async function byreal(argString) {
 export const poolInfo = (pool) => byreal(`pools info ${pool}`);
 export const listPositions = (owner, pool) =>
   byreal(`positions list --user ${owner} --pool ${pool}`);
+
+// Daily closes (oldest→newest) for vol / backtest. days back from now.
+export async function dailyCloses(pool, days = 180) {
+  const start = Math.floor(Date.now() / 1000) - days * 86400;
+  const k = (await byreal(`pools klines ${pool} --interval 1d --start ${start}`)).data?.klines || [];
+  return k
+    .map((x) => ({ t: x.timestamp, c: +Number(x.close).toFixed(4) }))
+    .sort((a, b) => a.t - b.t)
+    .map((x) => x.c)
+    .filter((p) => p > 0);
+}

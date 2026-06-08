@@ -9,6 +9,8 @@ import process from "node:process";
 import { snapshot } from "./monitor.js";
 import { portfolio } from "./portfolio.js";
 import { marketSession, earningsContext } from "./equity.js";
+import { dailyCloses } from "./byreal.js";
+import { realizedVolDaily, volWidthPct, rebalanceEV } from "./strategy.js";
 
 const cfg = JSON.parse(readFileSync(fileURLToPath(new URL("../config.json", import.meta.url)), "utf8"));
 const ACTION_EMOJI = { HOLD: "✅", WATCH: "\u{1F440}", WIDEN: "↔\u{FE0F}", REBALANCE: "\u{1F501}", NONE: "—" };
@@ -37,17 +39,46 @@ function rules(inRange, buffer, ticker, session, earnings) {
 }
 
 // Decide for one portfolio row (from portfolio.js).
-export function decide(row, now = new Date()) {
+// ctx may carry { aprPct, sigmaDaily } so the EV gate + vol-sizing can run.
+export function decide(row, now = new Date(), ctx = {}) {
   const session = marketSession(now);
   const earnings = earningsContext(cfg.earnings?.[row.ticker], cfg.earningsWindowDays, now);
-  const { action, reasons, rationale } = rules(row.inRange, row.buffer, row.ticker, session, earnings);
-  return { row, session, earnings, action, reasons, rationale };
+  const base = rules(row.inRange, row.buffer, row.ticker, session, earnings);
+  let action = base.action;
+  const reasons = [...base.reasons];
+
+  // EV gate — veto a rebalance whose expected fee recovery can't cover its cost.
+  const aprPct = ctx.aprPct ?? row.pool?.total_apr;
+  if (action === "REBALANCE" && aprPct) {
+    const ev = rebalanceEV(aprPct, cfg.backtestCostBps ?? 20, cfg.evHorizonDays ?? 14);
+    if (ev.netBps < 0) {
+      action = "WATCH";
+      reasons.push(`rebalance EV-negative (~${ev.feeBps.toFixed(0)}bps fees/${ev.horizonDays}d < ${ev.costBps}bps cost) -> hold`);
+    } else {
+      reasons.push(`rebalance EV +${ev.netBps.toFixed(0)}bps net of cost -> worth it`);
+    }
+  }
+
+  // Volatility-sized target range (used by the rebalance planner; shown for transparency).
+  let targetWidthPct = null;
+  if (ctx.sigmaDaily) {
+    targetWidthPct = volWidthPct(ctx.sigmaDaily, { horizonDays: cfg.volHorizonDays ?? 7, k: cfg.volK ?? 2 });
+    if (targetWidthPct) reasons.push(`σ ${(ctx.sigmaDaily * 100).toFixed(1)}%/d -> target range ±${(targetWidthPct * 100).toFixed(1)}%`);
+  }
+
+  return { row, session, earnings, action, reasons, rationale: reasons.join("; "), targetWidthPct, sigmaDaily: ctx.sigmaDaily ?? null };
 }
 
-// Judge the whole stock-LP portfolio.
+// Judge the whole stock-LP portfolio (fetches per-position realized vol for the EV gate + sizing).
 export async function assessPortfolio(owner = cfg.ownerWallet, now = new Date()) {
   const { stocks, rows } = await portfolio(owner);
-  return { stocks, session: marketSession(now), assessments: rows.map((r) => decide(r, now)) };
+  const assessments = [];
+  for (const r of rows) {
+    let sigmaDaily = null;
+    try { sigmaDaily = realizedVolDaily(await dailyCloses(r.pool.id, 60)); } catch {}
+    assessments.push(decide(r, now, { aprPct: r.pool.total_apr, sigmaDaily }));
+  }
+  return { stocks, session: marketSession(now), assessments };
 }
 
 // Telegram HTML for the whole portfolio.
