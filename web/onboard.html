@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RangeClaw — Open a guarded position</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  <div class="max-w-2xl mx-auto px-5 py-10">
+    <header class="mb-6">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🦅</span>
+        <div>
+          <h1 class="text-xl font-bold">Open a guarded position</h1>
+          <p class="text-slate-400 text-sm">Pick a stock, set a range, get the command — RangeClaw guards it from there.</p>
+        </div>
+      </div>
+      <a href="index.html" class="inline-block mt-3 text-sm text-sky-400 hover:underline">← back to dashboard</a>
+    </header>
+
+    <!-- Step 1: stock -->
+    <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">1 · Pick a stock</div>
+    <div id="chips" class="flex flex-wrap gap-2 mb-5"></div>
+
+    <!-- Selected + chart -->
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mb-5">
+      <div id="sel"></div>
+      <div class="mt-3" style="height:170px"><canvas id="chart"></canvas></div>
+      <div id="range" class="mt-3 text-sm text-slate-300"></div>
+    </div>
+
+    <!-- Step 2: amount + width -->
+    <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">2 · Capital &amp; range width</div>
+    <div class="flex flex-wrap items-center gap-3 mb-5">
+      <label class="text-sm text-slate-400">Deposit (USDC)
+        <input id="amount" type="number" value="500" min="1" class="ml-2 w-28 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100" />
+      </label>
+      <div class="flex gap-2">
+        <button class="wbtn px-3 py-1.5 rounded-lg border border-slate-700 text-sm ring-sky-500" data-w="0.08">Tight ±8%</button>
+        <button class="wbtn px-3 py-1.5 rounded-lg border border-slate-700 text-sm ring-sky-500" data-w="0.15">Balanced ±15%</button>
+        <button class="wbtn px-3 py-1.5 rounded-lg border border-slate-700 text-sm ring-sky-500" data-w="0.25">Wide ±25%</button>
+      </div>
+    </div>
+
+    <!-- Step 3: command -->
+    <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">3 · Open it (non-custodial)</div>
+    <label class="text-sm text-slate-400">Your Solana wallet
+      <input id="wallet" class="ml-2 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-sm" value="461jZcmvHnry8LpiDRZ9W9t5dHgMXwhYpGDANFkCkU9Z" />
+    </label>
+    <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <pre id="cmd" class="text-xs text-emerald-300 whitespace-pre-wrap break-all"></pre>
+      <button id="copy" class="mt-3 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-sm font-semibold">Copy command</button>
+    </div>
+    <p class="mt-3 text-xs text-slate-500">Runs via the Byreal Skills CLI. <b>Non-custodial</b> — it outputs an unsigned transaction you sign; RangeClaw never holds your key. Once open, it appears on the dashboard and the Guardian watches it.</p>
+
+    <footer class="mt-10 pt-6 border-t border-slate-800 text-sm text-slate-500">RangeClaw · Mantle Turing Test Hackathon 2026 · Agentic Wallets &amp; Economy</footer>
+  </div>
+
+  <script type="module">
+    const data = await fetch("data.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+    const stocks = (data?.stocks || []).filter((s) => s.poolId);
+    let sel = stocks[0], widthPct = 0.15, amount = 500, chart;
+    const $ = (id) => document.getElementById(id);
+
+    const bounds = () => ({ lo: +(sel.price * (1 - widthPct)).toFixed(2), hi: +(sel.price * (1 + widthPct)).toFixed(2) });
+    const cmd = () => {
+      const { lo, hi } = bounds();
+      const w = ($("wallet").value || "").trim() || "<YOUR_WALLET>";
+      return `byreal-cli positions open \\\n  --pool ${sel.poolId} \\\n  --price-lower ${lo} --price-upper ${hi} \\\n  --base ${sel.mintB} --amount ${amount} \\\n  --auto-swap --unsigned-tx --wallet-address ${w}`;
+    };
+
+    function renderChips() {
+      $("chips").innerHTML = stocks.map((s, i) =>
+        `<button data-i="${i}" class="chip px-3 py-1.5 rounded-lg border text-sm ${s === sel ? "border-sky-500 bg-sky-500/10 text-sky-300" : "border-slate-700 text-slate-300 hover:border-slate-500"}">${s.symbol} <span class="text-slate-500">${s.apr}%</span></button>`
+      ).join("");
+      document.querySelectorAll(".chip").forEach((b) => (b.onclick = () => { sel = stocks[+b.dataset.i]; render(); }));
+    }
+
+    function drawChart() {
+      const { lo, hi } = bounds(); const n = sel.klines.length;
+      if (chart) chart.destroy();
+      chart = new Chart($("chart"), {
+        type: "line",
+        data: { labels: sel.klines.map(() => ""), datasets: [
+          { data: sel.klines.map((k) => k.c), borderColor: "#60a5fa", backgroundColor: "#60a5fa1f", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true },
+          { data: Array(n).fill(lo), borderColor: "#4ade80", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+          { data: Array(n).fill(hi), borderColor: "#f87171", borderWidth: 1, borderDash: [5, 5], pointRadius: 0 },
+        ] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { ticks: { color: "#64748b" }, grid: { color: "#1f2a44" } } } },
+      });
+    }
+
+    function render() {
+      if (!sel) { $("sel").innerHTML = `<div class="text-amber-400 text-sm">data.json missing — run npm run export.</div>`; return; }
+      renderChips();
+      const { lo, hi } = bounds();
+      $("sel").innerHTML = `<div class="flex items-center justify-between"><div class="text-lg font-bold">${sel.symbol}/USDC</div><div class="text-right"><div class="text-2xl font-bold">$${sel.price.toFixed(2)}</div><div class="text-xs text-slate-400">APR ${sel.apr}%</div></div></div>`;
+      $("range").innerHTML = `Range: <b>$${lo}</b> – <b>$${hi}</b> (±${Math.round(widthPct * 100)}%) · deposit <b>$${amount}</b> USDC (auto-swapped into the pair)`;
+      $("cmd").textContent = cmd();
+      document.querySelectorAll(".wbtn").forEach((b) => b.classList.toggle("ring-2", +b.dataset.w === widthPct));
+      drawChart();
+    }
+
+    document.querySelectorAll(".wbtn").forEach((b) => (b.onclick = () => { widthPct = +b.dataset.w; render(); }));
+    $("amount").oninput = (e) => { amount = Math.max(1, +e.target.value || 0); render(); };
+    $("wallet").oninput = () => { $("cmd").textContent = cmd(); };
+    $("copy").onclick = () => { navigator.clipboard.writeText(cmd().replace(/\\\n\s*/g, " ")); $("copy").textContent = "Copied!"; setTimeout(() => ($("copy").textContent = "Copy command"), 1200); };
+
+    render();
+  </script>
+</body>
+</html>

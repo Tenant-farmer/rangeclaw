@@ -32,6 +32,7 @@ async function main() {
   for (const p of usdc) {
     const entry = {
       symbol: p.token_a.symbol, ticker: p.token_a.symbol.replace(/x$/, ""),
+      poolId: p.id, mintB: p.token_b.mint,
       apr: +p.total_apr.toFixed(1), price: +p.current_price.toFixed(2), tvl: Math.round(p.tvl_usd),
       held: false, klines: await klines(p.id),
     };
