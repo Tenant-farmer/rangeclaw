@@ -12,7 +12,16 @@ const pexec = promisify(exec);
  * Run a byreal-cli subcommand and return parsed JSON.
  * @param {string} argString e.g. `pools info <POOL>` or `positions list --user <W> --pool <P>`
  */
+// Injection guard: the values we pass (pool ids, mints, tickers, wallet addresses) are
+// all base58/hex/alphanumeric, so we reject anything carrying shell metacharacters — a
+// crafted value from the remote API can't break out of the command. (The npm CLI is a
+// Windows .cmd shim, which Node refuses to execFile without a shell post-CVE-2024-27980,
+// so we validate the input rather than drop the shell.)
+const SAFE = /^[A-Za-z0-9 _.:/-]+$/;
+export const safeArg = (v) => { const s = String(v); if (!SAFE.test(s)) throw new Error("byreal: refused unsafe argument: " + s); return s; };
+
 export async function byreal(argString) {
+  if (!SAFE.test(argString)) throw new Error("byreal: refused unsafe argument");
   const cmd = `byreal-cli --non-interactive -o json ${argString}`;
   const { stdout } = await pexec(cmd, { maxBuffer: 16 * 1024 * 1024 });
   const json = JSON.parse(stdout);

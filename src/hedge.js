@@ -11,7 +11,9 @@ import { promisify } from "node:util";
 import { portfolio } from "./portfolio.js";
 
 const pexec = promisify(exec);
+const SAFE = /^[A-Za-z0-9 _.:/-]+$/; // injection guard: reject shell metacharacters in CLI args
 async function perps(args) {
+  if (!SAFE.test(args)) throw new Error("perps: refused unsafe argument");
   const { stdout } = await pexec(`byreal-perps-cli -o json ${args}`, { maxBuffer: 16 * 1024 * 1024 });
   return JSON.parse(stdout);
 }
