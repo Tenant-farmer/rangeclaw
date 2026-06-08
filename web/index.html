@@ -61,6 +61,7 @@
         card.className = `rounded-2xl border ${s.held ? "border-sky-700/60 bg-slate-900/70" : "border-slate-800 bg-slate-900/40"} p-4`;
         const sub = s.held
           ? `<div class="mt-1 text-xs text-slate-400">${s.inRange ? `in range · buffer ${s.buffer}%` : "out of range"} · range $${s.lo}–$${s.hi} · liq ${s.liq} · fees ${s.fees}</div>
+             ${s.inRangePct != null ? `<div class="text-xs text-emerald-400/80 mt-0.5">backtest: in range ${s.inRangePct}% of last 60h</div>` : ""}
              <div class="text-xs text-slate-300 mt-0.5">${s.rationale}</div>`
           : `<div class="mt-1 text-xs text-slate-500">TVL $${(s.tvl / 1000).toFixed(0)}K · not held</div>`;
         card.innerHTML = `

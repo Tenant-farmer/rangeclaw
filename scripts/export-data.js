@@ -38,10 +38,13 @@ async function main() {
     const r = heldByPool.get(p.id);
     if (r) {
       const d = decide(r, now);
+      const kl = entry.klines;
+      const inRangePct = kl.length ? Math.round((kl.filter((k) => k.c >= r.lo && k.c <= r.hi).length / kl.length) * 100) : null;
       Object.assign(entry, {
         held: true, lo: +r.lo.toFixed(2), hi: +r.hi.toFixed(2),
         inRange: r.inRange, buffer: +r.buffer.toFixed(1), action: d.action, rationale: d.rationale,
         liq: r.pos.liquidityUsdDisplay, fees: r.pos.earnedUsdDisplay, pnl: r.pos.pnlUsdDisplay,
+        inRangePct,
       });
     }
     stocks.push(entry);

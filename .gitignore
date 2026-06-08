@@ -12,6 +12,7 @@ id.json
 .wallet/
 # agent runtime state
 .state.json
+.alerts.json
 # demo media lives on X / the submission, not in the code repo
 *.mp4
 image-*.png
