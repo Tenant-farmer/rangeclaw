@@ -18,7 +18,9 @@
           <p class="text-slate-400 text-sm">Autonomous Guardian for tokenized-stock liquidity — verifiable on Mantle</p>
         </div>
       </div>
-      <p id="market" class="mt-4 text-slate-300">Loading…</p>
+      <p class="text-slate-400 text-sm mt-3 max-w-3xl">Tokenized stocks trade <b class="text-slate-300">24/7 on-chain</b>, but the underlying equities only trade market hours — so concentrated LP ranges gap over nights, weekends &amp; earnings. RangeClaw watches the <b class="text-slate-300">equity calendar</b>, sizes ranges by <b class="text-slate-300">volatility</b>, rebalances only when <b class="text-slate-300">fees beat the cost</b>, and logs every decision <b class="text-slate-300">on Mantle</b>.</p>
+      <p id="heartbeat" class="text-xs text-slate-500 mt-3"></p>
+      <p id="market" class="mt-2 text-slate-300">Loading…</p>
       <a href="onboard.html" class="inline-block mt-3 text-sm px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 font-semibold">+ Open a guarded position →</a>
       <div id="realized" class="mt-4 rounded-xl border border-emerald-700/40 bg-emerald-500/5 px-4 py-3 text-sm hidden"></div>
     </header>
@@ -55,6 +57,10 @@
       document.getElementById("market").innerHTML =
         `\u{1F3DB}\u{FE0F} US market: <b>${m.isOpen ? "🟢 OPEN" : "🔴 " + m.state}</b> <span class="text-slate-500">· ${m.etTime}</span><br>` +
         `<span class="text-slate-400 text-sm">${data.stocks.length} stocks · ${held.length} held · ${inRange} in range</span>`;
+      const genMin = data.generatedAt ? Math.round((Date.now() - new Date(data.generatedAt).getTime()) / 60000) : null;
+      const stale = genMin != null && genMin > 30;
+      const hb = document.getElementById("heartbeat");
+      if (hb) hb.innerHTML = `<span class="${stale ? "text-amber-400" : "text-emerald-400"}">●</span> agent ${stale ? "data stale" : "live"} · refreshed ${genMin != null ? genMin + "m ago" : "—"} · ${data.stocks.length} stocks watched · auto-refresh ~10m`;
 
       const grid = document.getElementById("stocks");
       grid.innerHTML = "";
