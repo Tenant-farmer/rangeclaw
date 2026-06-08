@@ -11,6 +11,7 @@ import { byreal } from "../src/byreal.js";
 import { portfolio } from "../src/portfolio.js";
 import { decide } from "../src/guardian.js";
 import { marketSession } from "../src/equity.js";
+import { backtest } from "../src/backtest.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cfg = JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
@@ -19,6 +20,15 @@ async function klines(poolId) {
   try {
     const k = (await byreal(`pools klines ${poolId} --interval 1h`)).data.klines || [];
     return k.map((x) => ({ t: x.timestamp, c: +Number(x.close).toFixed(2) })).sort((a, b) => a.t - b.t).slice(-60);
+  } catch { return []; }
+}
+
+async function klinesDaily(poolId) {
+  // ~180 daily closes for the backtest (chart uses the 60h hourly series above)
+  try {
+    const start = Math.floor(Date.now() / 1000) - 180 * 86400;
+    const k = (await byreal(`pools klines ${poolId} --interval 1d --start ${start}`)).data.klines || [];
+    return k.map((x) => ({ t: x.timestamp, c: +Number(x.close).toFixed(2) })).sort((a, b) => a.t - b.t).map((x) => x.c).filter((p) => p > 0);
   } catch { return []; }
 }
 
@@ -50,6 +60,11 @@ async function main() {
         inRangePct,
       });
     }
+    const bt = backtest(await klinesDaily(p.id), {
+      aprPct: entry.apr, widthPct: cfg.defaultWidthPct ?? 0.05,
+      costBps: cfg.backtestCostBps ?? 20, periodsPerYear: 365,
+    });
+    if (bt) entry.bt = bt;
     stocks.push(entry);
   }
   stocks.sort((a, b) => (b.mcap - a.mcap) || (b.apr - a.apr)); // market cap desc
@@ -57,7 +72,7 @@ async function main() {
   const out = { generatedAt: now.toISOString(), market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime }, stocks };
   writeFileSync(join(root, "web", "data.json"), JSON.stringify(out));
   console.log(`Wrote data.json · market=${session.state} · stocks=${stocks.length} · held=${rows.length}`);
-  stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} ${s.held ? s.action : "-"} $${s.price} APR ${s.apr}% · klines ${s.klines.length}`));
+  stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} ${s.held ? s.action : "-"} $${s.price} APR ${s.apr}% · netEdge ${s.bt ? s.bt.netEdgeBps : "-"}bps (${s.bt ? s.bt.rebalances : "-"} rebal)`));
 }
 
 main().catch((e) => { console.error("ERROR:", e.message); process.exit(1); });

@@ -12,6 +12,8 @@
   "nextEarnings": "2026-07-22",
   "earningsWindowDays": 3,
   "earningsWidenFactor": 1.5,
+  "backtestCostBps": 20,
+  "defaultWidthPct": 0.05,
   "earnings": {
     "_note": "TSLA/NVDA/AAPL/GOOGL/META/AMZN from earnings calendars; others estimated — verify",
     "TSLA": "2026-07-29", "NVDA": "2026-08-26", "AAPL": "2026-07-30",

@@ -62,9 +62,9 @@
         card.className = `rounded-2xl border ${s.held ? "border-sky-700/60 bg-slate-900/70" : "border-slate-800 bg-slate-900/40"} p-3`;
         const sub = s.held
           ? `<div class="mt-1 text-xs text-slate-400">${s.inRange ? `in range · buffer ${s.buffer}%` : "out of range"} · range $${s.lo}–$${s.hi} · liq ${s.liq} · fees ${s.fees}</div>
-             ${s.inRangePct != null ? `<div class="text-xs text-emerald-400/80 mt-0.5">backtest: in range ${s.inRangePct}% of last 60h</div>` : ""}
+             ${s.bt ? `<div class="text-xs mt-0.5 ${s.bt.netEdgeBps >= 0 ? "text-emerald-400/90" : "text-rose-400/90"}">backtest 180d: ${s.bt.netEdgeBps >= 0 ? "+" : ""}${s.bt.netEdgeBps} bps vs passive · ${s.bt.rebalances} rebal</div>` : ""}
              <div class="text-xs text-slate-300 mt-0.5">${s.rationale}</div>`
-          : `<div class="mt-1 text-xs text-slate-500">TVL $${(s.tvl / 1000).toFixed(0)}K · not held</div>`;
+          : `<div class="mt-1 text-xs text-slate-500">TVL $${(s.tvl / 1000).toFixed(0)}K${s.bt ? ` · net edge ${s.bt.netEdgeBps >= 0 ? "+" : ""}${s.bt.netEdgeBps} bps/180d` : ""}</div>`;
         card.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2"><span class="font-bold">${s.symbol}</span>${s.held ? badge(s.action) : (s.apr >= 30 ? '<span class="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/40">📈 high APR</span>' : "")}</div>
