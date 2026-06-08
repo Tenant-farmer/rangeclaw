@@ -70,7 +70,12 @@ async function main() {
   }
   stocks.sort((a, b) => (b.mcap - a.mcap) || (b.apr - a.apr)); // market cap desc
 
-  const out = { generatedAt: now.toISOString(), market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime }, stocks };
+  const out = {
+    generatedAt: now.toISOString(),
+    market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime },
+    mantle: { journal: cfg.mantle.journalAddress, explorer: cfg.mantle.explorer, chainId: cfg.mantle.chainId, rpc: cfg.mantle.rpc, fromBlock: cfg.mantle.fromBlock ?? 0 },
+    stocks,
+  };
   writeFileSync(join(root, "web", "data.json"), JSON.stringify(out));
   console.log(`Wrote data.json · market=${session.state} · stocks=${stocks.length} · held=${rows.length}`);
   stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} σ${s.sigmaPct ?? "-"}% ±${s.widthPct ?? "-"}% APR ${s.apr}% · netEdge ${s.bt ? s.bt.netEdgeBps : "-"}bps (${s.bt ? s.bt.rebalances : "-"} rebal)`));

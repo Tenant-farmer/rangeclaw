@@ -28,6 +28,7 @@ const loadState = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); 
 const saveState = (s) => writeFileSync(STATE, JSON.stringify(s, null, 2));
 const subs = () => { try { return JSON.parse(readFileSync(ALERTS, "utf8")); } catch { return []; } };
 const refreshData = () => pexec(process.execPath, [join(root, "scripts", "export-data.js")]).catch((e) => console.error("export-data:", e.message));
+const num = (s) => { const m = String(s ?? "").replace(/[$,]/g, "").match(/-?[\d.]+/); return m ? parseFloat(m[0]) : 0; };
 
 async function alert(text) {
   if (!TG) return;
@@ -48,20 +49,29 @@ async function tick() {
   const baseline = state === null; // first run: record actions, don't log/alert
   state = state || {};
 
-  if (!baseline) {
-    const journal = new Contract(cfg.mantle.journalAddress, abi, loadWallet(getProvider()));
-    for (const a of p.assessments) {
-      const prev = state[a.row.pair];
-      if (prev !== a.action) {
-        const priceE6 = BigInt(Math.round(a.row.price * 1e6));
-        const tx = await journal.logDecision(a.action, a.row.pos.tickLower, a.row.pos.tickUpper, priceE6, a.session.state, `[${a.row.pair}] ${a.rationale}`);
-        await tx.wait();
-        await alert(`\u{1F985} <b>${a.row.pair}</b>  ${prev || "—"} → <b>${a.action}</b>\n$${a.row.price.toFixed(2)} · ${a.rationale}`);
-        console.log(`${ts}  ${a.row.pair} ${prev || "—"} -> ${a.action}  on-chain ${tx.hash.slice(0, 12)}… + alert`);
-      }
+  const journal = baseline ? null : new Contract(cfg.mantle.journalAddress, abi, loadWallet(getProvider()));
+  for (const a of p.assessments) {
+    const r = a.row;
+    // decision change -> log on-chain + Telegram alert
+    if (journal && state[r.pair] !== a.action) {
+      const priceE6 = BigInt(Math.round(r.price * 1e6));
+      const tx = await journal.logDecision(a.action, r.pos.tickLower, r.pos.tickUpper, priceE6, a.session.state, `[${r.pair}] ${a.rationale}`);
+      await tx.wait();
+      await alert(`\u{1F985} <b>${r.pair}</b>  ${state[r.pair] || "—"} → <b>${a.action}</b>\n$${r.price.toFixed(2)} · ${a.rationale}`);
+      console.log(`${ts}  ${r.pair} ${state[r.pair] || "—"} -> ${a.action}  decision ${tx.hash.slice(0, 12)}…`);
     }
+    state[r.pair] = a.action;
+
+    // realized outcome change -> log fees + PnL on-chain (proves OUTCOMES, not just actions)
+    const feesUsd = num(r.pos.earnedUsdDisplay), pnlUsd = num(r.pos.pnlUsdDisplay);
+    const okey = `${r.pair}#out`, cur = `${feesUsd.toFixed(2)}|${pnlUsd.toFixed(2)}`;
+    if (journal && state[okey] !== undefined && state[okey] !== cur) {
+      const tx = await journal.logOutcome(r.pair, BigInt(Math.round(feesUsd * 1e6)), BigInt(Math.round(pnlUsd * 1e6)));
+      await tx.wait();
+      console.log(`${ts}  ${r.pair} outcome fees $${feesUsd} pnl $${pnlUsd}  ${tx.hash.slice(0, 12)}…`);
+    }
+    state[okey] = cur;
   }
-  for (const a of p.assessments) state[a.row.pair] = a.action;
   saveState(state);
   await refreshData();
   console.log(`${ts}  tick ${baseline ? "(baseline)" : "done"} · market ${p.session.state} · positions ${p.assessments.length} · subs ${subs().length}`);

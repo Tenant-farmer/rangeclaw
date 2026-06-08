@@ -19,21 +19,40 @@
   "volHorizonDays": 7,
   "earnings": {
     "_note": "TSLA/NVDA/AAPL/GOOGL/META/AMZN from earnings calendars; others estimated — verify",
-    "TSLA": "2026-07-29", "NVDA": "2026-08-26", "AAPL": "2026-07-30",
-    "GOOGL": "2026-07-28", "META": "2026-07-29", "AMZN": "2026-07-30",
-    "MSTR": "2026-07-31", "COIN": "2026-08-06", "HOOD": "2026-08-05",
-    "MCD": "2026-07-28", "CRCL": "2026-08-12"
+    "TSLA": "2026-07-29",
+    "NVDA": "2026-08-26",
+    "AAPL": "2026-07-30",
+    "GOOGL": "2026-07-28",
+    "META": "2026-07-29",
+    "AMZN": "2026-07-30",
+    "MSTR": "2026-07-31",
+    "COIN": "2026-08-06",
+    "HOOD": "2026-08-05",
+    "MCD": "2026-07-28",
+    "CRCL": "2026-08-12"
   },
   "marketCaps": {
     "_note": "approx USD billions, mid-2026 (cross-checked); ETFs=AUM; STRC=preferred par",
-    "NVDA": 4980, "AAPL": 4540, "GOOGL": 4470, "AMZN": 2640, "META": 1550,
-    "TSLA": 1468, "SPY": 787, "QQQ": 496, "MCD": 199, "HOOD": 74,
-    "MSTR": 44, "COIN": 43, "CRCL": 22, "STRC": 9
+    "NVDA": 4980,
+    "AAPL": 4540,
+    "GOOGL": 4470,
+    "AMZN": 2640,
+    "META": 1550,
+    "TSLA": 1468,
+    "SPY": 787,
+    "QQQ": 496,
+    "MCD": 199,
+    "HOOD": 74,
+    "MSTR": 44,
+    "COIN": 43,
+    "CRCL": 22,
+    "STRC": 9
   },
   "mantle": {
     "chainId": 5003,
     "rpc": "https://rpc.sepolia.mantle.xyz",
     "explorer": "https://explorer.sepolia.mantle.xyz",
-    "journalAddress": "0x09542c48b8708ed0CeB52a636193A2d932D9350E"
+    "journalAddress": "0x31A36C77c43DD8225775C9A3B31c66A001Bc2820",
+    "fromBlock": 39690000
   }
 }
