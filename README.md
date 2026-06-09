@@ -2,7 +2,7 @@
 
 **Mantle Turing Test Hackathon 2026 · Agentic Wallets & Economy track (Byreal)**
 
-> **Live dashboard:** https://euphonious-cannoli-72b96c.netlify.app/
+> **Live dashboard:** https://tenant-farmer.github.io/rangeclaw/ (auto-deploys on push)
 > **AgentJournal (Mantle Sepolia):** [`0x31A36C77c43DD8225775C9A3B31c66A001Bc2820`](https://explorer.sepolia.mantle.xyz/address/0x31A36C77c43DD8225775C9A3B31c66A001Bc2820)
 
 An autonomous agent that manages a **portfolio of tokenized-stock LP positions** on Byreal, understands the **equity-market calendar**, and writes every decision **on-chain to Mantle**.
