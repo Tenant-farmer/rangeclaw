@@ -46,9 +46,11 @@
 
     <!-- Step 3: command -->
     <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">3 · Open it (non-custodial)</div>
-    <label class="text-sm text-slate-400">Your Solana wallet
-      <input id="wallet" class="ml-2 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-sm" value="461jZcmvHnry8LpiDRZ9W9t5dHgMXwhYpGDANFkCkU9Z" />
-    </label>
+    <div class="flex items-center gap-2 mb-1">
+      <button id="connect" class="text-sm px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 font-semibold">Connect Phantom</button>
+      <span id="wstatus" class="text-xs text-slate-500">or paste your Solana address</span>
+    </div>
+    <input id="wallet" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-sm" placeholder="Your Solana wallet address" value="461jZcmvHnry8LpiDRZ9W9t5dHgMXwhYpGDANFkCkU9Z" />
     <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <pre id="cmd" class="text-xs text-emerald-300 whitespace-pre-wrap break-all"></pre>
       <button id="copy" class="mt-3 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-sm font-semibold">Copy command</button>
@@ -104,6 +106,16 @@
     }
 
     document.querySelectorAll(".wbtn").forEach((b) => (b.onclick = () => { widthPct = +b.dataset.w; render(); }));
+    $("connect").addEventListener("click", async () => {
+      const sol = window.solana;
+      if (!sol?.isPhantom) { window.open("https://phantom.app/", "_blank"); return; }
+      try {
+        const res = await sol.connect();
+        $("wallet").value = res.publicKey.toString();
+        $("wstatus").innerHTML = "<span class='text-emerald-400'>connected ✓</span>";
+        render();
+      } catch {}
+    });
     $("amount").oninput = (e) => { amount = Math.max(1, +e.target.value || 0); render(); };
     $("wallet").oninput = () => { $("cmd").textContent = cmd(); };
     $("copy").onclick = () => { navigator.clipboard.writeText(cmd().replace(/\\\n\s*/g, " ")); $("copy").textContent = "Copied!"; setTimeout(() => ($("copy").textContent = "Copy command"), 1200); };
