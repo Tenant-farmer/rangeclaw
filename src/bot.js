@@ -27,8 +27,27 @@ function subscribe(id) {
 const bot = new Bot(token);
 bot.use((ctx, next) => { if (ctx.chat?.id) subscribe(ctx.chat.id); return next(); }); // anyone who talks to the bot gets alerts
 
-bot.command("start", (ctx) =>
-  ctx.reply("\u{1F985} RangeClaw online.\n/status — your stock-LP portfolio + Guardian\n/stocks — all tokenized stocks by APR\n/plan — non-custodial rebalance plans\n/hedge — delta-hedge suggestion (Byreal Perps)\n/alerts — DM me when a position needs attention")
+const HELP = [
+  "\u{1F985} <b>RangeClaw — how to use</b>",
+  "",
+  "I'm an autonomous guardian for your tokenized-stock LP positions on Byreal. Tokenized stocks trade 24/7 but the real equities don't — I watch the market calendar, size ranges by volatility, and only rebalance when fees beat the cost. Every decision is logged on Mantle.",
+  "",
+  "<b>Commands</b>",
+  "/status — your positions + a market-aware verdict (HOLD / WATCH / WIDEN / REBALANCE) with the reasoning",
+  "/stocks — every tokenized stock on Byreal, ranked by APR",
+  "/plan — a non-custodial rebalance plan (vol-sized range, live price-impact quote, est. cost) → an unsigned tx you sign",
+  "/hedge — a delta-hedge suggestion via Byreal Perps (advisory)",
+  "/alerts — subscribe: I'll DM you when a position's verdict changes",
+  "/help — this message",
+  "",
+  "<b>Dashboard</b> (charts + live on-chain journal):",
+  "https://tenant-farmer.github.io/rangeclaw/",
+  "",
+  "<i>Non-custodial — I never hold your keys or move funds. Rebalances are unsigned transactions you approve.</i>",
+].join("\n");
+
+bot.command(["start", "help"], (ctx) =>
+  ctx.reply(HELP, { parse_mode: "HTML", disable_web_page_preview: true })
 );
 
 bot.command("alerts", (ctx) =>
@@ -80,4 +99,14 @@ bot.command("hedge", async (ctx) => {
 });
 
 bot.catch((err) => console.error("bot error:", err));
+
+bot.api.setMyCommands([
+  { command: "status", description: "Your positions + Guardian verdict" },
+  { command: "stocks", description: "All tokenized stocks by APR" },
+  { command: "plan", description: "Non-custodial rebalance plan" },
+  { command: "hedge", description: "Delta-hedge suggestion (Byreal Perps)" },
+  { command: "alerts", description: "DM me when a position changes" },
+  { command: "help", description: "How to use RangeClaw" },
+]).catch((e) => console.error("setMyCommands:", e.message));
+
 bot.start({ onStart: (i) => console.log("RangeClaw polling as @" + i.username) });
