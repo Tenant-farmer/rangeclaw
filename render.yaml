@@ -1,0 +1,17 @@
+# Render Blueprint — host the RangeClaw Telegram bot 24/7 (free tier).
+# Render → New → Blueprint → connect this repo (it reads this file).
+# Set the TELEGRAM_BOT_TOKEN secret when prompted, then deploy.
+# Free web services sleep after ~15 min idle → add an uptime pinger (see DEPLOY-BOT.md)
+# hitting the service URL every ~5 min so the bot keeps polling.
+services:
+  - type: web
+    name: rangeclaw-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node src/bot.js
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false   # set as a secret in the Render dashboard (never commit it)

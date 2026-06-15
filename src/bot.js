@@ -5,6 +5,7 @@
 //   /alerts  -> subscribe to push DMs when a position needs attention
 
 import process from "node:process";
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { readFileSync, writeFileSync } from "node:fs";
 import { Bot } from "grammy";
@@ -108,5 +109,14 @@ bot.api.setMyCommands([
   { command: "alerts", description: "DM me when a position changes" },
   { command: "help", description: "How to use RangeClaw" },
 ]).catch((e) => console.error("setMyCommands:", e.message));
+
+// Health server — only when PORT is set (Render/Railway). Lets the bot run on a
+// free web-service tier and stay awake via an uptime pinger; Telegram updates
+// still arrive via polling. Locally (no PORT) this is skipped.
+if (process.env.PORT) {
+  http
+    .createServer((_req, res) => { res.writeHead(200, { "Content-Type": "text/plain" }); res.end("RangeClaw bot ok\n"); })
+    .listen(process.env.PORT, () => console.log("health server on :" + process.env.PORT));
+}
 
 bot.start({ onStart: (i) => console.log("RangeClaw polling as @" + i.username) });
