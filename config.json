@@ -54,6 +54,6 @@
     "rpc": "https://rpc.sepolia.mantle.xyz",
     "explorer": "https://explorer.sepolia.mantle.xyz",
     "journalAddress": "0x31A36C77c43DD8225775C9A3B31c66A001Bc2820",
-    "fromBlock": 39690000
+    "fromBlock": 39510000
   }
 }

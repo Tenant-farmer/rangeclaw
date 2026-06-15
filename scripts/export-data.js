@@ -13,9 +13,46 @@ import { decide } from "../src/guardian.js";
 import { marketSession, earningsContext } from "../src/equity.js";
 import { backtest } from "../src/backtest.js";
 import { realizedVolDaily, volWidthPct } from "../src/strategy.js";
+import { JsonRpcProvider, Contract } from "ethers";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cfg = JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
+
+const JOURNAL_ABI = [
+  "event DecisionLogged(uint256 indexed id, address indexed agent, string action, int24 tickLower, int24 tickUpper, uint256 priceE6, string market, string rationale, uint64 timestamp)",
+  "event OutcomeLogged(uint256 indexed id, string pair, int256 feesE6, int256 pnlE6, uint64 timestamp)",
+  "function count() view returns (uint256)",
+];
+const jsleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Read the on-chain journal server-side (retry/backoff on rate-limit) so the
+// dashboard renders it from data.json instead of hammering the public RPC from
+// every visitor's browser (which was hitting -32016 rate-limit errors).
+async function readJournal() {
+  const provider = new JsonRpcProvider(cfg.mantle.rpc, cfg.mantle.chainId);
+  const c = new Contract(cfg.mantle.journalAddress, JOURNAL_ABI, provider);
+  const latest = await provider.getBlockNumber();
+  const getAll = async (filter) => {
+    const acc = []; let from = cfg.mantle.fromBlock || Math.max(0, latest - 9000);
+    while (from <= latest) {
+      const to = Math.min(from + 9000, latest);
+      for (let attempt = 0; ; attempt++) {
+        try { acc.push(...(await c.queryFilter(filter, from, to))); break; }
+        catch (e) { if (attempt >= 5) throw e; await jsleep(1500 * (attempt + 1)); }
+      }
+      from = to + 1; await jsleep(300);
+    }
+    return acc;
+  };
+  let count = 0; try { count = Number(await c.count()); } catch {}
+  const dec = await getAll(c.filters.DecisionLogged());
+  const out = await getAll(c.filters.OutcomeLogged());
+  return {
+    count,
+    decisions: dec.map((e) => ({ action: e.args.action, priceE6: e.args.priceE6.toString(), market: e.args.market, rationale: e.args.rationale, tx: e.transactionHash })),
+    outcomes: out.map((e) => ({ pair: e.args.pair, feesE6: e.args.feesE6.toString(), pnlE6: e.args.pnlE6.toString(), tx: e.transactionHash })),
+  };
+}
 
 async function klines(poolId) {
   try {
@@ -76,14 +113,22 @@ async function main() {
   }
   stocks.sort((a, b) => (b.mcap - a.mcap) || (b.apr - a.apr)); // market cap desc
 
+  let journal = null;
+  try { journal = await readJournal(); }
+  catch (e) {
+    console.error("journal read failed (keeping previous snapshot):", e.message);
+    try { journal = JSON.parse(readFileSync(join(root, "web", "data.json"), "utf8")).journal || null; } catch {}
+  }
+
   const out = {
     generatedAt: now.toISOString(),
     market: { state: session.state, isOpen: session.isOpen, etTime: session.etTime },
     mantle: { journal: cfg.mantle.journalAddress, explorer: cfg.mantle.explorer, chainId: cfg.mantle.chainId, rpc: cfg.mantle.rpc, fromBlock: cfg.mantle.fromBlock ?? 0 },
+    journal: journal || { count: 0, decisions: [], outcomes: [] },
     stocks,
   };
   writeFileSync(join(root, "web", "data.json"), JSON.stringify(out));
-  console.log(`Wrote data.json · market=${session.state} · stocks=${stocks.length} · held=${rows.length}`);
+  console.log(`Wrote data.json · market=${session.state} · stocks=${stocks.length} · held=${rows.length} · journal=${out.journal.decisions.length} decisions/${out.journal.outcomes.length} outcomes (count=${out.journal.count})`);
   stocks.forEach((s) => console.log(`  ${s.symbol.padEnd(7)} σ${s.sigmaPct ?? "-"}% ±${s.widthPct ?? "-"}% APR ${s.apr}% · netEdge ${s.bt ? s.bt.netEdgeBps : "-"}bps (${s.bt ? s.bt.rebalances : "-"} rebal)`));
 }
 
