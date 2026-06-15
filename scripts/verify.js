@@ -1,7 +1,9 @@
-// Verify AgentJournal on Mantle's Blockscout explorer (Etherscan-compatible API,
-// standard-json-input). Uses the SAME source + solc + optimizer settings as deploy,
-// so the bytecode/metadata match. Run after deploy:  node scripts/verify.js
-// If the explorer API is down (503), just retry later - verification is not blocking.
+// Verify AgentJournal on Mantle's explorer via the Etherscan v2 unified API.
+// mantlescan is Etherscan-powered, so ONE Etherscan API key works for chainId 5003.
+//   1) Get a free key at https://etherscan.io/myapikey
+//   2) PowerShell:  $env:ETHERSCAN_API_KEY="yourkey"; npm run verify
+// No key? Verify manually in the mantlescan UI (this script prints the exact steps).
+// Same source + solc + optimizer settings as deploy, so bytecode/metadata match.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -15,7 +17,9 @@ const cfg = JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
 const source = readFileSync(join(root, "contracts", "AgentJournal.sol"), "utf8");
 
 const ADDR = cfg.mantle.journalAddress;
-const API = cfg.mantle.explorer + "/api";
+const CHAINID = cfg.mantle.chainId;
+const KEY = process.env.ETHERSCAN_API_KEY || process.env.MANTLESCAN_API_KEY;
+const API = `https://api.etherscan.io/v2/api?chainid=${CHAINID}`;
 const compilerversion = "v" + solc.version().split(".Emscripten")[0]; // e.g. v0.8.35+commit.47b9dedd
 
 const standardInput = {
@@ -23,16 +27,32 @@ const standardInput = {
   sources: { "AgentJournal.sol": { content: source } },
   settings: { optimizer: { enabled: true, runs: 200 }, outputSelection: { "*": { "*": ["abi", "evm.bytecode"] } } },
 };
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function printManualSteps() {
+  console.log("\nManual verification (no API key needed) — mantlescan UI:");
+  console.log(`  URL       : https://sepolia.mantlescan.xyz/verifyContract?a=${ADDR}`);
+  console.log("  Type      : Solidity (Single file)");
+  console.log(`  Compiler  : ${compilerversion}`);
+  console.log("  Optimizer : Yes, 200 runs");
+  console.log("  License   : MIT");
+  console.log("  Contract  : AgentJournal   (no constructor arguments)");
+  console.log("  Source    : paste the contents of app/contracts/AgentJournal.sol\n");
+}
 
 async function main() {
   if (!ADDR) throw new Error("No journalAddress in config - deploy first.");
-  console.log("Verifying", ADDR, "as AgentJournal, compiler", compilerversion);
-
+  if (!KEY) {
+    console.log("No ETHERSCAN_API_KEY / MANTLESCAN_API_KEY set.");
+    printManualSteps();
+    return;
+  }
+  console.log("Verifying", ADDR, "as AgentJournal, compiler", compilerversion, "chainId", CHAINID);
   const form = new URLSearchParams();
+  form.set("chainid", String(CHAINID));
   form.set("module", "contract");
   form.set("action", "verifysourcecode");
+  form.set("apikey", KEY);
   form.set("codeformat", "solidity-standard-json-input");
   form.set("contractaddress", ADDR);
   form.set("contractname", "AgentJournal.sol:AgentJournal");
@@ -44,32 +64,31 @@ async function main() {
 
   let sub;
   try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
-    });
+    const res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
     sub = await res.json();
   } catch (e) {
-    throw new Error(`Explorer API unreachable (${e.message}). It may be temporarily down (503) - retry later, or verify via the explorer UI (Standard-JSON-Input, ${compilerversion}, optimizer 200 runs, MIT).`);
+    console.log(`API unreachable (${e.message}).`);
+    printManualSteps();
+    return;
   }
   console.log("submit:", JSON.stringify(sub));
   if (String(sub.status) !== "1") {
-    console.log("Not queued. If it says already verified, you're done. Otherwise retry, or use the UI.");
+    console.log("Not queued (maybe already verified, bad key, or rate-limited).");
+    printManualSteps();
     return;
   }
   const guid = sub.result;
   for (let i = 0; i < 12; i++) {
     await sleep(3000);
     try {
-      const r = await fetch(`${API}?module=contract&action=checkverifystatus&guid=${guid}`);
+      const r = await fetch(`${API}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${KEY}`);
       const st = await r.json();
       console.log("status:", JSON.stringify(st));
       if (/pass|verified/i.test(st.result || "") || String(st.status) === "1") break;
       if (/fail|error/i.test(st.result || "")) break;
     } catch (e) { console.log("poll error:", e.message); }
   }
-  console.log("Code page:", `${cfg.mantle.explorer}/address/${ADDR}#code`);
+  console.log("Check:", `https://sepolia.mantlescan.xyz/address/${ADDR}#code`);
 }
 
 main().catch((e) => { console.error("ERROR:", e.message); process.exit(1); });
