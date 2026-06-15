@@ -3,7 +3,7 @@
 **Mantle Turing Test Hackathon 2026 · Agentic Wallets & Economy track (Byreal)**
 
 > **Live dashboard:** https://tenant-farmer.github.io/rangeclaw/ (auto-deploys on push)
-> **AgentJournal (Mantle Sepolia):** [`0x31A36C77c43DD8225775C9A3B31c66A001Bc2820`](https://explorer.sepolia.mantle.xyz/address/0x31A36C77c43DD8225775C9A3B31c66A001Bc2820)
+> **AgentJournal (Mantle Sepolia testnet · verified ✓):** [`0x31A36C77c43DD8225775C9A3B31c66A001Bc2820`](https://sepolia.mantlescan.xyz/address/0x31A36C77c43DD8225775C9A3B31c66A001Bc2820#code) — 53 on-chain journal entries (2 decisions + 51 realized-outcome logs)
 
 An autonomous agent that manages a **portfolio of tokenized-stock LP positions** on Byreal, understands the **equity-market calendar**, and writes every decision **on-chain to Mantle**.
 
@@ -53,7 +53,7 @@ Liquidity executes on **Solana** (Byreal CLMM, where the xStock pools live — t
 ## Run
 ```bash
 npm install -g @byreal-io/byreal-cli
-cd app && npm install
+npm install
 
 npm run portfolio   # discover stocks + your positions (read-only)
 npm run guardian    # market-aware portfolio decisions
