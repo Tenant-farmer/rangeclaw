@@ -9,7 +9,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: node src/bot.js
+    # uses the Dockerfile CMD (node src/bot.js): polls Telegram + serves a health endpoint on PORT
     plan: free
     healthCheckPath: /
     envVars:
